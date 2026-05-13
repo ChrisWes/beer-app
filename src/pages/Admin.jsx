@@ -338,32 +338,28 @@ export default function Admin() {
   )
 }
 
-const SNIPPET = `(function() {
+const SNIPPET = `// Rounds Untappd export snippet v3
+(function() {
   const checkins = [];
   const items = document.querySelectorAll('[data-checkin-id]');
   items.forEach(item => {
-    const beerName  = item.querySelector('.name a')?.textContent?.trim() ?? null;
-    const brewery   = item.querySelector('.brewery a')?.textContent?.trim() ?? null;
-    const style     = item.querySelector('.style')?.textContent?.trim() ?? null;
-    const abvRaw    = item.querySelector('.abv')?.textContent?.trim() ?? null;
-    const abv       = abvRaw ? parseFloat(abvRaw.match(/[\\d.]+/)?.[0]) : null;
-    const ratingEl  = item.querySelector('.rating-number');
-    const ratingRaw = ratingEl ? parseFloat(ratingEl.textContent.trim()) : null;
+    const beerName  = item.querySelector('.text a[href^="/b/"]')?.textContent?.trim() ?? null;
+    const brewery   = item.querySelector('.text a:not(.user):not([href^="/b/"]):not([href^="/v/"])')?.textContent?.trim() ?? null;
+    const capsEl    = item.querySelector('.caps[data-rating]');
+    const ratingRaw = capsEl ? parseFloat(capsEl.dataset.rating) : null;
     const score     = ratingRaw && ratingRaw > 0 ? Math.round(ratingRaw * 2 * 10) / 10 : null;
-    const note      = item.querySelector('.checkin-comment p')?.textContent?.trim()
-                   ?? item.querySelector('.comment p')?.textContent?.trim() ?? null;
-    const venueName = item.querySelector('.venue a')?.textContent?.trim() ?? null;
-    const dateEl    = item.querySelector('a.time, abbr.timeago');
-    const drankAt   = dateEl?.getAttribute('title') ?? dateEl?.getAttribute('datetime') ?? null;
+    const note      = item.querySelector('.checkin-comment p')?.textContent?.trim() ?? null;
+    const venueName = item.querySelector('.text a[href^="/v/"]')?.textContent?.trim() ?? null;
+    const drankAt   = item.querySelector('a.time')?.textContent?.trim() ?? null;
     const checkinId = item.getAttribute('data-checkin-id');
     if (beerName && brewery) {
       checkins.push({ untappd_checkin_id: checkinId, beer_name: beerName, brewery,
-        style: style||null, abv: isNaN(abv)?null:abv, score, note: note||null,
+        style: null, abv: null, score, note: note||null,
         venue_name: venueName||null, drank_at: drankAt||null, imported_from: 'untappd' });
     }
   });
   if (!checkins.length) { alert('No check-ins found. Scroll to the bottom first.'); return; }
-  const username = document.querySelector('.username')?.textContent?.trim()
+  const username = document.querySelector('p.username')?.textContent?.trim()
                ?? window.location.pathname.split('/').filter(Boolean).pop() ?? 'untappd';
   const blob = new Blob([JSON.stringify({ username, checkin_count: checkins.length, checkins }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);

@@ -142,7 +142,7 @@ function ReactionPicker({ onSelect }) {
           position: 'absolute',
           bottom: '110%',
           left: 0,
-          background: 'var(--white)',
+          background: 'var(--ink-soft)',
           border: '1px solid var(--fog)',
           borderRadius: 'var(--radius)',
           padding: '8px',

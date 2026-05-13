@@ -45,13 +45,13 @@ export default function Login() {
           marginBottom: 4,
         }}>Rounds</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.95rem' }}>
-          Beer, pubs, and the people who care about both.
+          The future of beers and pubs, today!
         </p>
       </div>
 
       {/* Card */}
       <div style={{
-        background: 'var(--cream)',
+        background: 'var(--ink-soft)',
         borderRadius: 'var(--radius-lg)',
         padding: '28px 24px',
         width: '100%',

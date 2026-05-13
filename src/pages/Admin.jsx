@@ -233,7 +233,7 @@ export default function Admin() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', fontSize: '0.85rem' }}>
               {scraped.checkins.slice(0, 10).map((c, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, color: 'var(--ink-soft)' }}>
+                <div key={i} style={{ display: 'flex', gap: 8, color: 'var(--white)' }}>
                   <span style={{ color: 'var(--muted)', flexShrink: 0 }}>
                     {c.score ? `${c.score}/10` : '—'}
                   </span>
@@ -263,9 +263,9 @@ export default function Admin() {
 
         {/* Import result */}
         {importResult && (
-          <div className="card" style={{ padding: 16, background: '#e8f5e9', borderColor: '#a5d6a7' }}>
-            <div style={{ fontWeight: 600, color: '#2e7d32', marginBottom: 4 }}>Import complete</div>
-            <div style={{ fontSize: '0.9rem', color: '#388e3c' }}>
+          <div className="card" style={{ padding: 16, background: 'rgba(212,132,30,0.12)', borderColor: 'var(--amber)' }}>
+            <div style={{ fontWeight: 600, color: 'var(--amber-soft)', marginBottom: 4 }}>Import complete</div>
+            <div style={{ fontSize: '0.9rem', color: 'var(--amber-soft)' }}>
               {importResult.ratingsCreated} ratings · {importResult.beersCreated} new beers · {importResult.skipped} skipped
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function Admin() {
         <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
           Steps
         </div>
-        <ol style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.9rem', color: 'var(--ink-soft)' }}>
+        <ol style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.9rem', color: 'var(--white)' }}>
           <li>Go to their Untappd profile: <code style={{ background: 'var(--fog)', padding: '1px 5px', borderRadius: 3 }}>untappd.com/user/USERNAME</code></li>
           <li>Scroll to the absolute bottom until no more check-ins load</li>
           <li>Open DevTools with <strong>F12</strong>, click the <strong>Console</strong> tab</li>

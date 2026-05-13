@@ -5,17 +5,17 @@
 
 :root {
   /* Palette */
-  --ink:        #1a0f00;
-  --ink-soft:   #3d2b1a;
-  --mahogany:   #5c2e0e;
-  --amber:      #c47a1e;
-  --amber-soft: #e8a84a;
+  --ink:        #0e0b07;
+  --ink-soft:   #1a1510;
+  --mahogany:   #b8541a;
+  --amber:      #d4841e;
+  --amber-soft: #f0a535;
   --gold:       #f5c842;
-  --cream:      #fdf6e3;
-  --cream-dark: #f5e8c8;
-  --fog:        #e8dcc8;
-  --muted:      #9c8060;
-  --white:      #ffffff;
+  --cream:      #1f1a12;
+  --cream-dark: #2a2218;
+  --fog:        #3d3326;
+  --muted:      #8a7560;
+  --white:      #f0e8d8;
 
   /* Beer colours (for the colour picker) */
   --beer-straw:      #f5e6a3;
@@ -37,9 +37,9 @@
   --radius-lg: 20px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(26,15,0,0.15);
-  --shadow:    0 4px 12px rgba(26,15,0,0.2);
-  --shadow-lg: 0 8px 32px rgba(26,15,0,0.25);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow:    0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
 
   /* Nav height */
   --nav-height: 60px;
@@ -59,8 +59,8 @@ html {
 body {
   font-family: var(--font-body);
   font-weight: 400;
-  background: var(--cream);
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--white);
   min-height: 100vh;
   min-height: 100dvh;
   line-height: 1.5;
@@ -87,7 +87,7 @@ h2 { font-size: 1.5rem; }
 h3 { font-size: 1.2rem; }
 
 a {
-  color: var(--mahogany);
+  color: var(--amber-soft);
   text-decoration: none;
 }
 
@@ -112,7 +112,7 @@ input, textarea, select {
 }
 
 .card {
-  background: var(--white);
+  background: var(--ink-soft);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--fog);
@@ -132,21 +132,21 @@ input, textarea, select {
 
 .btn-primary {
   background: var(--mahogany);
-  color: var(--cream);
+  color: var(--white);
 }
 .btn-primary:hover {
-  background: var(--ink-soft);
+  background: var(--amber);
   transform: translateY(-1px);
   box-shadow: var(--shadow);
 }
 
 .btn-secondary {
-  background: var(--cream-dark);
-  color: var(--ink);
-  border: 1px solid var(--fog);
+  background: transparent;
+  color: var(--white);
+  border: 1.5px solid var(--fog);
 }
 .btn-secondary:hover {
-  background: var(--fog);
+  background: var(--cream);
 }
 
 .btn-ghost {
@@ -154,7 +154,7 @@ input, textarea, select {
   color: var(--muted);
 }
 .btn-ghost:hover {
-  color: var(--ink);
+  color: var(--white);
   background: var(--cream-dark);
 }
 
@@ -173,7 +173,7 @@ input, textarea, select {
 .form-field label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--ink-soft);
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -181,11 +181,11 @@ input, textarea, select {
 .form-field input,
 .form-field textarea,
 .form-field select {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border: 1.5px solid var(--fog);
   border-radius: var(--radius-sm);
   background: var(--cream);
-  color: var(--ink);
+  color: var(--white);
   transition: border-color 0.15s;
   width: 100%;
 }
@@ -240,7 +240,7 @@ input, textarea, select {
   display: flex;
   align-items: stretch;
   z-index: 100;
-  border-top: 2px solid var(--mahogany);
+  border-top: 1px solid var(--fog);
 }
 
 .bottom-nav a {
@@ -276,8 +276,8 @@ input, textarea, select {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  background: var(--mahogany);
-  color: var(--cream);
+  background: var(--amber);
+  color: var(--ink);
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -288,7 +288,7 @@ input, textarea, select {
 }
 
 .bottom-nav .log-btn:hover {
-  background: var(--amber);
+  background: var(--amber-soft);
   color: var(--ink);
 }
 
@@ -308,12 +308,12 @@ input, textarea, select {
 
 .page-header h1 {
   font-size: 1.8rem;
-  color: var(--ink);
+  color: var(--white);
 }
 
 /* ── Feed card ───────────────────────────────────────────── */
 .feed-card {
-  background: var(--white);
+  background: var(--ink-soft);
   border-radius: var(--radius);
   border: 1px solid var(--fog);
   padding: 16px;
@@ -336,7 +336,7 @@ input, textarea, select {
 .feed-card-meta .user-name {
   font-weight: 600;
   font-size: 0.9rem;
-  color: var(--ink);
+  color: var(--white);
 }
 
 .feed-card-meta .time {
@@ -358,7 +358,7 @@ input, textarea, select {
 .feed-card-beer-info .beer-name {
   font-family: var(--font-display);
   font-size: 1.1rem;
-  color: var(--ink);
+  color: var(--white);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -377,7 +377,7 @@ input, textarea, select {
 
 .feed-card-note {
   font-size: 0.9rem;
-  color: var(--ink-soft);
+  color: var(--muted);
   font-style: italic;
   line-height: 1.4;
 }
@@ -402,12 +402,12 @@ input, textarea, select {
   font-size: 0.75rem;
   font-weight: 600;
   background: var(--cream-dark);
-  color: var(--ink-soft);
+  color: var(--white);
 }
 
 .tag.seek-again {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: rgba(212,132,30,0.18);
+  color: var(--amber-soft);
 }
 
 .reactions-row {
@@ -421,7 +421,7 @@ input, textarea, select {
   background: var(--cream-dark);
   border: 1px solid var(--fog);
   border-radius: 20px;
-  padding: 3px 10px;
+  padding: 8px 12px;
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.15s;
@@ -517,12 +517,12 @@ input[type="range"] {
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--mahogany);
   cursor: pointer;
-  border: 3px solid var(--cream);
+  border: 3px solid var(--amber-soft);
   box-shadow: var(--shadow-sm);
   transition: transform 0.1s;
 }
@@ -541,7 +541,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 .flavour-label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--ink-soft);
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   width: 80px;
@@ -565,8 +565,8 @@ input[type="range"]::-webkit-slider-thumb:active {
 }
 
 .colour-option {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: 3px solid transparent;
   cursor: pointer;
@@ -578,7 +578,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 }
 
 .colour-option.selected {
-  border-color: var(--ink);
+  border-color: var(--white);
   transform: scale(1.15);
 }
 
@@ -590,11 +590,11 @@ input[type="range"]::-webkit-slider-thumb:active {
 }
 
 .pill {
-  padding: 6px 14px;
+  padding: 10px 16px;
   border-radius: 20px;
   border: 1.5px solid var(--fog);
   background: var(--cream);
-  color: var(--ink-soft);
+  color: var(--muted);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -607,7 +607,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 
 .pill.selected {
   background: var(--mahogany);
-  color: var(--cream);
+  color: var(--white);
   border-color: var(--mahogany);
 }
 
@@ -620,7 +620,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 
 /* ── Stats / analytics ───────────────────────────────────── */
 .stat-card {
-  background: var(--white);
+  background: var(--ink-soft);
   border-radius: var(--radius);
   border: 1px solid var(--fog);
   padding: 16px;
@@ -653,7 +653,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(26,15,0,0.6);
+  background: rgba(0,0,0,0.75);
   z-index: 200;
   display: flex;
   align-items: flex-end;
@@ -661,7 +661,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 }
 
 .modal {
-  background: var(--cream);
+  background: var(--ink-soft);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   width: 100%;
   max-width: 680px;
@@ -688,7 +688,7 @@ input[type="range"]::-webkit-slider-thumb:active {
   font-family: var(--font-display);
   font-size: 1.4rem;
   margin-bottom: 20px;
-  color: var(--ink);
+  color: var(--white);
 }
 
 .form-stack {
@@ -716,8 +716,8 @@ input[type="range"]::-webkit-slider-thumb:active {
 }
 
 .seek-again-toggle.yes {
-  background: #e8f5e9;
-  border-color: #a5d6a7;
+  background: rgba(212,132,30,0.15);
+  border-color: var(--amber);
 }
 
 .seek-again-toggle input {
@@ -737,4 +737,14 @@ input[type="range"]::-webkit-slider-thumb:active {
   .stats-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+@media (max-width: 480px) {
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.3rem; }
+  .container { padding: 0 12px; }
+  .stat-card .stat-value { font-size: 2rem; }
+  .modal { padding: 20px 16px 36px; }
+  .score-display { font-size: 2.5rem; }
+  .flavour-label { width: 66px; font-size: 0.75rem; }
 }

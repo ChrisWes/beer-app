@@ -141,7 +141,7 @@ export default function Admin() {
       }, { onConflict: 'user_id,beer_id,drank_at', ignoreDuplicates: true })
 
       if (!ratingError) ratingsCreated++
-      else skipped++
+      else { addLog(`Skip (rating error): ${checkin.beer_name} — ${ratingError.message}`); skipped++ }
     }
 
     const result = { beersCreated, ratingsCreated, skipped }

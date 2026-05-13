@@ -15,12 +15,19 @@ function SetupProfile() {
   const { user, fetchProfile } = useAuth()
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   async function save(e) {
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
-    await supabase.from('profiles').upsert({ id: user.id, display_name: name.trim() })
+    setError(null)
+    const { error } = await supabase.from('profiles').upsert({ id: user.id, display_name: name.trim() })
+    if (error) {
+      setError(error.message)
+      setSaving(false)
+      return
+    }
     await fetchProfile(user.id)
     setSaving(false)
   }
@@ -39,6 +46,7 @@ function SetupProfile() {
             autoFocus
           />
         </div>
+        {error && <p style={{ color: 'var(--amber-soft)', fontSize: '0.9rem' }}>{error}</p>}
         <button className="btn btn-primary" disabled={!name.trim() || saving}>
           {saving ? 'Saving...' : 'Get started'}
         </button>

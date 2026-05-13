@@ -124,7 +124,7 @@ export default function Admin() {
           created_by: selectedUser,
         }).select('id').single()
 
-        if (error) { addLog(`Skip (beer insert error): ${checkin.beer_name}`); skipped++; continue }
+        if (error) { addLog(`Skip (beer insert error): ${checkin.beer_name} — ${error.message}`); skipped++; continue }
         beerId = newBeer.id
         beersCreated++
       }

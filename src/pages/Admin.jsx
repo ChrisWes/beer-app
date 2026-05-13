@@ -340,7 +340,7 @@ export default function Admin() {
 
 const SNIPPET = `(function() {
   const checkins = [];
-  const items = document.querySelectorAll('.item[data-checkin-id]');
+  const items = document.querySelectorAll('[data-checkin-id]');
   items.forEach(item => {
     const beerName  = item.querySelector('.name a')?.textContent?.trim() ?? null;
     const brewery   = item.querySelector('.brewery a')?.textContent?.trim() ?? null;

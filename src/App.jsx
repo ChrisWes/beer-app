@@ -22,7 +22,7 @@ function SetupProfile() {
     if (!name.trim()) return
     setSaving(true)
     setError(null)
-    const { error } = await supabase.from('profiles').upsert({ id: user.id, display_name: name.trim() })
+    const { error } = await supabase.from('profiles').upsert({ id: user.id, display_name: name.trim(), email: user.email })
     if (error) {
       setError(error.message)
       setSaving(false)

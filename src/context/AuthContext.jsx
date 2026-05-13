@@ -42,11 +42,11 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }
 
-  async function signIn(email) {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
+  async function signIn() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        emailRedirectTo: window.location.origin,
+        redirectTo: window.location.origin,
       },
     })
     return { error }

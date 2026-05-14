@@ -109,32 +109,52 @@ export default function Admin() {
     const beerKeys = Object.keys(uniqueBeers)
     const beerMap = new Map()
 
-    // Step 2: upsert all unique beers — unique constraint on (name, brewery) handles dedup
-    addLog(`Upserting ${beerKeys.length} unique beers...`)
-    const allRows = beerKeys.map(k => uniqueBeers[k]).map(c => ({
-      name: c.beer_name,
-      brewery: c.brewery,
-      style: c.style || null,
-      abv: c.abv || null,
-      style_category: mapStyleCategory(c.style),
-      untappd_id: c.untappd_checkin_id ? `checkin_${c.untappd_checkin_id}` : null,
-      created_by: selectedUser,
-    }))
-    const CHUNK = 50
-    for (let i = 0; i < allRows.length; i += CHUNK) {
-      const { data: upserted, error: beerError } = await supabase
-        .from('beers')
-        .upsert(allRows.slice(i, i + CHUNK), { onConflict: 'name,brewery', ignoreDuplicates: false })
-        .select('id, name, brewery')
-      if (beerError) {
-        addLog(`Beer upsert error (chunk ${Math.floor(i / CHUNK) + 1}): ${beerError.message}`)
-      } else {
-        for (const b of upserted ?? []) {
-          beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
+    // Step 2: look up existing beers with parallel .eq() queries (handles special chars correctly)
+    addLog(`Looking up ${beerKeys.length} unique beers...`)
+    const PARALLEL = 20
+    for (let i = 0; i < beerKeys.length; i += PARALLEL) {
+      const batch = beerKeys.slice(i, i + PARALLEL)
+      const results = await Promise.all(
+        batch.map(k => supabase.from('beers')
+          .select('id, name, brewery')
+          .eq('name', uniqueBeers[k].beer_name)
+          .eq('brewery', uniqueBeers[k].brewery)
+          .maybeSingle()
+        )
+      )
+      for (const { data } of results) {
+        if (data) beerMap.set(`${data.name.toLowerCase()}|||${data.brewery.toLowerCase()}`, data.id)
+      }
+    }
+
+    // Step 3: insert beers not already found, in chunks of 50
+    const toInsert = beerKeys.filter(k => !beerMap.has(k)).map(k => uniqueBeers[k])
+    if (toInsert.length > 0) {
+      addLog(`Inserting ${toInsert.length} new beers...`)
+      const CHUNK = 50
+      for (let i = 0; i < toInsert.length; i += CHUNK) {
+        const { data: inserted, error: beerError } = await supabase
+          .from('beers')
+          .insert(toInsert.slice(i, i + CHUNK).map(c => ({
+            name: c.beer_name,
+            brewery: c.brewery,
+            style: c.style || null,
+            abv: c.abv || null,
+            style_category: mapStyleCategory(c.style),
+            untappd_id: c.untappd_checkin_id ? `checkin_${c.untappd_checkin_id}` : null,
+            created_by: selectedUser,
+          })))
+          .select('id, name, brewery')
+        if (beerError) {
+          addLog(`Beer insert error (chunk ${Math.floor(i / CHUNK) + 1}): ${beerError.message}`)
+        } else {
+          beersCreated += inserted.length
+          for (const b of inserted) {
+            beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
+          }
         }
       }
     }
-    beersCreated = beerMap.size
 
     // Step 4: build ratings array
     const ratings = []

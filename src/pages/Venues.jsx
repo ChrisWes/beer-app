@@ -39,6 +39,8 @@ export default function Venues() {
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [sortBy, setSortBy] = useState('score') // 'score' | 'name'
+  const [country, setCountry] = useState('') // '' = all
 
   useEffect(() => { fetchVenues() }, [])
 
@@ -46,10 +48,22 @@ export default function Venues() {
     const { data } = await supabase
       .from('venue_leaderboard')
       .select('*')
-      .limit(50)
     setVenues(data ?? [])
     setLoading(false)
   }
+
+  const countries = [...new Set(venues.map(v => v.country).filter(Boolean))].sort()
+
+  const visible = venues
+    .filter(v => !country || v.country === country)
+    .sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name)
+      // score: venues with a score first, then no-score venues alphabetically
+      if (a.avg_score && b.avg_score) return parseFloat(b.avg_score) - parseFloat(a.avg_score)
+      if (a.avg_score) return -1
+      if (b.avg_score) return 1
+      return a.name.localeCompare(b.name)
+    })
 
   return (
     <div className="container page">
@@ -60,13 +74,50 @@ export default function Venues() {
         </button>
       </div>
 
+      {/* Sort + filter controls */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {['score', 'name'].map(s => (
+            <button
+              key={s}
+              onClick={() => setSortBy(s)}
+              className={`pill ${sortBy === s ? 'selected' : ''}`}
+              style={{ fontSize: '0.8rem' }}
+            >
+              {s === 'score' ? 'By score' : 'A–Z'}
+            </button>
+          ))}
+        </div>
+        {countries.length > 1 && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setCountry('')}
+              className={`pill ${country === '' ? 'selected' : ''}`}
+              style={{ fontSize: '0.8rem' }}
+            >
+              All
+            </button>
+            {countries.map(c => (
+              <button
+                key={c}
+                onClick={() => setCountry(c)}
+                className={`pill ${country === c ? 'selected' : ''}`}
+                style={{ fontSize: '0.8rem' }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {loading && <div className="loading-bar" />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {venues.map((v, i) => (
+        {visible.map((v, i) => (
           <VenueCard key={v.id} venue={v} rank={i + 1} onClick={() => setSelected(v)} />
         ))}
-        {!loading && venues.length === 0 && (
+        {!loading && visible.length === 0 && (
           <div className="empty-state">
             <p>No pubs logged yet.</p>
             <p style={{ fontSize: '0.9rem' }}>Add your local.</p>

@@ -7,6 +7,7 @@ import Feed from './pages/Feed'
 import Profile from './pages/Profile'
 import Analytics from './pages/Analytics'
 import Venues from './pages/Venues'
+import Beers from './pages/Beers'
 import Admin from './pages/Admin'
 import Nav from './components/Nav'
 import './index.css'
@@ -76,6 +77,7 @@ function AppRoutes() {
         <Route path="/profile"   element={<Profile />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/venues"    element={<Venues />} />
+        <Route path="/beers"     element={<Beers />} />
         <Route path="/admin"     element={<Admin />} />
         <Route path="*"          element={<Navigate to="/" />} />
       </Routes>

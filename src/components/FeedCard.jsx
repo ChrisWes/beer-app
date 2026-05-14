@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Avatar from './Avatar'
-import { scoreClass, colourHex, abvFlame, formatDate, BEER_COLOURS, STYLE_CATEGORIES } from '../lib/constants'
+import { scoreClass, colourHex, abvFlame, formatDate, BEER_COLOURS, STYLE_CATEGORIES, CLARITY_OPTIONS, HEAD_OPTIONS, CARBONATION_OPTIONS, ADJUNCTS } from '../lib/constants'
 
 const REACTION_EMOJIS = ['👍', '🍺', '😍', '🤢', '🔥', '💀']
 
 export default function FeedCard({ rating, onReactionChange }) {
   const { profile } = useAuth()
   const [reactions, setReactions] = useState(rating.reactions ?? [])
-  const [editingBeer, setEditingBeer] = useState(false)
+  const [editingRating, setEditingRating] = useState(false)
 
   const score = parseFloat(rating.score)
   const flame = abvFlame(rating.abv)
@@ -70,9 +70,9 @@ export default function FeedCard({ rating, onReactionChange }) {
             {rating.beer_name}
             {flame && <span className="abv-flame" style={{ marginLeft: 4 }}>{flame}</span>}
             <button
-              onClick={() => setEditingBeer(true)}
+              onClick={() => setEditingRating(true)}
               style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px', lineHeight: 1, verticalAlign: 'middle' }}
-              title="Edit beer"
+              title="Edit rating"
             >✎</button>
           </div>
           <div className="brewery">{rating.brewery}</div>
@@ -129,11 +129,11 @@ export default function FeedCard({ rating, onReactionChange }) {
       </div>
     </div>
 
-    {editingBeer && (
-      <EditBeerModal
+    {editingRating && (
+      <EditRatingModal
         ratingId={rating.id}
-        onClose={() => setEditingBeer(false)}
-        onSave={() => { setEditingBeer(false); onReactionChange() }}
+        onClose={() => setEditingRating(false)}
+        onSave={() => { setEditingRating(false); onReactionChange() }}
       />
     )}
   </>
@@ -192,71 +192,70 @@ function ReactionPicker({ onSelect }) {
   )
 }
 
-function EditBeerModal({ ratingId, onClose, onSave }) {
+function EditRatingModal({ ratingId, onClose, onSave }) {
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    supabase.from('ratings').select('beer_id').eq('id', ratingId).single().then(({ data: r }) => {
-      if (!r?.beer_id) return
-      supabase.from('beers').select('*').eq('id', r.beer_id).single().then(({ data }) => {
-        if (data) setForm(data)
-      })
+    supabase.from('ratings').select('*').eq('id', ratingId).single().then(({ data }) => {
+      if (data) setForm(data)
     })
   }, [ratingId])
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
+  function toggleAdjunct(a) {
+    setForm(f => {
+      const curr = f.adjuncts ?? []
+      return { ...f, adjuncts: curr.includes(a) ? curr.filter(x => x !== a) : [...curr, a] }
+    })
+  }
+
   async function save() {
-    if (!form?.name?.trim() || !form?.brewery?.trim()) return
+    if (!form) return
     setSaving(true)
-    await supabase.from('beers').update({
-      name:           form.name.trim(),
-      brewery:        form.brewery.trim(),
-      style:          form.style || null,
-      style_category: form.style_category || null,
-      abv:            form.abv ? parseFloat(form.abv) : null,
-      colour:         form.colour || null,
-    }).eq('id', form.id)
+    await supabase.from('ratings').update({
+      score:            parseFloat(form.score),
+      colour:           form.colour || null,
+      clarity:          form.clarity || null,
+      head:             form.head || null,
+      carbonation:      form.carbonation || null,
+      adjuncts:         form.adjuncts ?? [],
+      note:             form.note?.trim() || null,
+      would_seek_again: form.would_seek_again ?? null,
+    }).eq('id', ratingId)
     setSaving(false)
     onSave()
   }
 
   if (!form) return null
 
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1)
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-handle" />
-        <h2 className="modal-title">Edit beer</h2>
+        <h2 className="modal-title">Edit rating</h2>
         <div className="form-stack">
+
+          {/* Score */}
           <div className="form-field">
-            <label>Beer name</label>
-            <input value={form.name ?? ''} onChange={e => set('name', e.target.value)} />
-          </div>
-          <div className="form-field">
-            <label>Brewery</label>
-            <input value={form.brewery ?? ''} onChange={e => set('brewery', e.target.value)} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="form-field">
-              <label>Style</label>
-              <input value={form.style ?? ''} onChange={e => set('style', e.target.value)} placeholder="e.g. West Coast IPA" />
-            </div>
-            <div className="form-field">
-              <label>ABV %</label>
-              <input type="number" step="0.1" min="0" max="25" value={form.abv ?? ''} onChange={e => set('abv', e.target.value)} />
+            <label>Score</label>
+            <div className="score-slider-wrap">
+              <div className="score-display">{form.score}<span>/10</span></div>
+              <input
+                type="range" min="1" max="10" step="0.5"
+                value={form.score}
+                onChange={e => set('score', parseFloat(e.target.value))}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                <span>Drain pour</span><span>Perfect pint</span>
+              </div>
             </div>
           </div>
-          <div className="form-field">
-            <label>Style category</label>
-            <select value={form.style_category ?? ''} onChange={e => set('style_category', e.target.value)}>
-              <option value="">— unknown —</option>
-              {STYLE_CATEGORIES.map(s => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-          </div>
+
+          {/* Colour */}
           <div className="form-field">
             <label>Colour</label>
             <div className="colour-picker">
@@ -266,14 +265,77 @@ function EditBeerModal({ ratingId, onClose, onSave }) {
                   className={`colour-option ${form.colour === c.value ? 'selected' : ''}`}
                   style={{ background: c.hex }}
                   title={c.label}
-                  onClick={() => set('colour', c.value)}
+                  onClick={() => set('colour', form.colour === c.value ? null : c.value)}
                 />
               ))}
             </div>
           </div>
+
+          {/* Appearance */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div className="form-field">
+              <label>Clarity</label>
+              <div className="pill-group" style={{ flexDirection: 'column' }}>
+                {CLARITY_OPTIONS.map(o => (
+                  <button key={o} className={`pill ${form.clarity === o ? 'selected' : ''}`}
+                    onClick={() => set('clarity', form.clarity === o ? null : o)}>{cap(o)}</button>
+                ))}
+              </div>
+            </div>
+            <div className="form-field">
+              <label>Head</label>
+              <div className="pill-group" style={{ flexDirection: 'column' }}>
+                {HEAD_OPTIONS.map(o => (
+                  <button key={o} className={`pill ${form.head === o ? 'selected' : ''}`}
+                    onClick={() => set('head', form.head === o ? null : o)}>{cap(o)}</button>
+                ))}
+              </div>
+            </div>
+            <div className="form-field">
+              <label>Carbonation</label>
+              <div className="pill-group" style={{ flexDirection: 'column' }}>
+                {CARBONATION_OPTIONS.map(o => (
+                  <button key={o} className={`pill ${form.carbonation === o ? 'selected' : ''}`}
+                    onClick={() => set('carbonation', form.carbonation === o ? null : o)}>{cap(o)}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Adjuncts */}
+          <div className="form-field">
+            <label>Adjuncts</label>
+            <div className="adjunct-grid">
+              {ADJUNCTS.map(a => (
+                <button key={a} className={`pill ${(form.adjuncts ?? []).includes(a) ? 'selected' : ''}`}
+                  onClick={() => toggleAdjunct(a)}>{a}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Note */}
+          <div className="form-field">
+            <label>Tasting note</label>
+            <textarea
+              value={form.note ?? ''}
+              onChange={e => set('note', e.target.value)}
+              placeholder="What did you think?"
+            />
+          </div>
+
+          {/* Would seek again */}
+          <label className={`seek-again-toggle ${form.would_seek_again === true ? 'yes' : ''}`}>
+            <input
+              type="checkbox"
+              checked={form.would_seek_again === true}
+              onChange={e => set('would_seek_again', e.target.checked ? true : null)}
+            />
+            <span>Would seek this out again</span>
+          </label>
+
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" style={{ flex: 1 }} onClick={save} disabled={saving || !form.name?.trim() || !form.brewery?.trim()}>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={save} disabled={saving}>
               {saving ? 'Saving...' : 'Save changes'}
             </button>
           </div>

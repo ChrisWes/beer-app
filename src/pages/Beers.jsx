@@ -10,12 +10,12 @@ const STYLE_LABELS = {
 }
 
 const SCORE_BANDS = [
-  { label: 'All',  test: () => true },
-  { label: '9+',   test: b => parseFloat(b.avg_score) >= 9 },
-  { label: '8+',   test: b => parseFloat(b.avg_score) >= 8 },
-  { label: '7+',   test: b => parseFloat(b.avg_score) >= 7 },
-  { label: '6+',   test: b => parseFloat(b.avg_score) >= 6 },
-  { label: '< 6',  test: b => parseFloat(b.avg_score) < 6 },
+  { label: 'All', test: () => true },
+  { label: '9',   test: b => parseFloat(b.avg_score) >= 9 },
+  { label: '8',   test: b => parseFloat(b.avg_score) >= 8 && parseFloat(b.avg_score) < 9 },
+  { label: '7',   test: b => parseFloat(b.avg_score) >= 7 && parseFloat(b.avg_score) < 8 },
+  { label: '6',   test: b => parseFloat(b.avg_score) >= 6 && parseFloat(b.avg_score) < 7 },
+  { label: '< 6', test: b => parseFloat(b.avg_score) < 6 },
 ]
 
 export default function Beers() {

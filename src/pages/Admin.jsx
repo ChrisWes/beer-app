@@ -97,70 +97,31 @@ export default function Admin() {
     let ratingsCreated = 0
     let skipped = 0
 
-    addLog(`Starting import of ${checkins.length} check-ins for user ${selectedUser}...`)
+    addLog(`Importing ${checkins.length} check-ins via database function...`)
 
-    // Step 1: deduplicate beers in the import
-    const uniqueBeers = {}
-    for (const c of checkins) {
-      if (!c.beer_name || !c.brewery) continue
-      const key = `${c.beer_name.toLowerCase()}|||${c.brewery.toLowerCase()}`
-      if (!uniqueBeers[key]) uniqueBeers[key] = c
-    }
-    const beerKeys = Object.keys(uniqueBeers)
-    const beerMap = new Map()
-
-    // Step 2: single RPC call — find or create all beers server-side (one round trip)
-    addLog(`Finding/creating ${beerKeys.length} beers...`)
-    const { data: beerResults, error: beerError } = await supabase.rpc('find_or_create_beers', {
-      p_beers: beerKeys.map(k => ({
-        name: uniqueBeers[k].beer_name,
-        brewery: uniqueBeers[k].brewery,
-        style: uniqueBeers[k].style || null,
-        abv: uniqueBeers[k].abv || null,
-        style_category: mapStyleCategory(uniqueBeers[k].style) || null,
+    const { data, error: importError } = await supabase.rpc('import_untappd_checkins', {
+      p_checkins: checkins.map(c => ({
+        beer_name:      c.beer_name    || null,
+        brewery:        c.brewery      || null,
+        style:          c.style        || null,
+        abv:            c.abv          || null,
+        style_category: mapStyleCategory(c.style) || null,
+        score:          c.score        ?? null,
+        note:           c.note         || null,
+        drank_at:       c.drank_at     || null,
       })),
       p_user_id: selectedUser,
     })
-    if (beerError) {
-      addLog(`Beer error: ${beerError.message}`)
+
+    if (importError) {
+      addLog(`Import error: ${importError.message}`)
       setImporting(false)
       return
     }
-    for (const b of beerResults ?? []) {
-      beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
-    }
-    beersCreated = (beerResults ?? []).filter(b => b.is_new).length
 
-    // Step 4: build ratings array
-    const ratings = []
-    for (const c of checkins) {
-      if (!c.beer_name || !c.brewery) { skipped++; continue }
-      const key = `${c.beer_name.toLowerCase()}|||${c.brewery.toLowerCase()}`
-      const beerId = beerMap.get(key)
-      if (!beerId) { skipped++; continue }
-      const drankAt = c.drank_at ? new Date(c.drank_at).toISOString() : new Date().toISOString()
-      ratings.push({
-        user_id: selectedUser,
-        beer_id: beerId,
-        score: c.score ?? 5,
-        note: c.note || null,
-        drank_at: drankAt,
-        imported_from: 'untappd',
-      })
-    }
-
-    // Step 5: batch upsert ratings
-    addLog(`Upserting ${ratings.length} ratings...`)
-    const { error: ratingError } = await supabase.from('ratings').upsert(
-      ratings,
-      { onConflict: 'user_id,beer_id,drank_at', ignoreDuplicates: true }
-    )
-
-    if (ratingError) {
-      addLog(`Rating upsert error: ${ratingError.message}`)
-    } else {
-      ratingsCreated = ratings.length
-    }
+    beersCreated   = data.beers_created   ?? 0
+    ratingsCreated = data.ratings_created ?? 0
+    skipped        = data.skipped         ?? 0
 
     const result = { beersCreated, ratingsCreated, skipped }
     setImportResult(result)

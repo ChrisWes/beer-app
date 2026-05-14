@@ -1,48 +1,96 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import FeedCard from '../components/FeedCard'
+
+const PAGE_SIZE = 30
 
 export default function Feed() {
   const [ratings, setRatings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const sentinelRef = useRef(null)
+  const loadingMoreRef = useRef(false)
+  const hasMoreRef = useRef(true)
 
   useEffect(() => {
-    fetchFeed()
+    fetchPage(0, true)
 
-    // Real-time subscription
     const channel = supabase
       .channel('feed')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ratings' }, () => {
-        fetchFeed()
+        fetchPage(0, true)
       })
       .subscribe()
 
     return () => supabase.removeChannel(channel)
   }, [])
 
-  async function fetchFeed() {
+  // Sync refs so the IntersectionObserver callback always reads current values
+  useEffect(() => { hasMoreRef.current = hasMore }, [hasMore])
+  useEffect(() => { loadingMoreRef.current = loadingMore }, [loadingMore])
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMoreRef.current && !loadingMoreRef.current) {
+          setRatings(prev => {
+            fetchPage(prev.length, false)
+            return prev
+          })
+        }
+      },
+      { rootMargin: '300px' }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [])
+
+  async function fetchPage(pageOffset, replace) {
+    if (replace) setLoading(true)
+    else {
+      if (loadingMoreRef.current) return
+      setLoadingMore(true)
+      loadingMoreRef.current = true
+    }
+
     const { data } = await supabase
       .from('feed')
       .select('*')
-      .limit(50)
+      .order('drank_at', { ascending: false })
+      .range(pageOffset, pageOffset + PAGE_SIZE - 1)
 
-    // Fetch reactions for each rating
     if (data?.length) {
       const ids = data.map(r => r.id)
       const { data: reactions } = await supabase
-        .from('reactions')
-        .select('*')
-        .in('rating_id', ids)
+        .from('reactions').select('*').in('rating_id', ids)
 
       const withReactions = data.map(r => ({
         ...r,
         reactions: reactions?.filter(rx => rx.rating_id === r.id) ?? [],
       }))
-      setRatings(withReactions)
+
+      if (replace) {
+        setRatings(withReactions)
+      } else {
+        setRatings(prev => [...prev, ...withReactions])
+      }
+      const more = data.length === PAGE_SIZE
+      setHasMore(more)
+      hasMoreRef.current = more
     } else {
-      setRatings([])
+      if (replace) setRatings([])
+      setHasMore(false)
+      hasMoreRef.current = false
     }
-    setLoading(false)
+
+    if (replace) setLoading(false)
+    else {
+      setLoadingMore(false)
+      loadingMoreRef.current = false
+    }
   }
 
   return (
@@ -65,9 +113,12 @@ export default function Feed() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {ratings.map(r => (
-          <FeedCard key={r.id} rating={r} onReactionChange={fetchFeed} />
+          <FeedCard key={r.id} rating={r} onReactionChange={() => fetchPage(0, true)} />
         ))}
       </div>
+
+      <div ref={sentinelRef} style={{ height: 1 }} />
+      {loadingMore && <div className="loading-bar" style={{ marginTop: 12 }} />}
     </div>
   )
 }

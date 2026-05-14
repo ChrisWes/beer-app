@@ -131,7 +131,7 @@ export default function FeedCard({ rating, onReactionChange }) {
 
     {editingBeer && (
       <EditBeerModal
-        beerId={rating.beer_id}
+        ratingId={rating.id}
         onClose={() => setEditingBeer(false)}
         onSave={() => { setEditingBeer(false); onReactionChange() }}
       />
@@ -192,15 +192,18 @@ function ReactionPicker({ onSelect }) {
   )
 }
 
-function EditBeerModal({ beerId, onClose, onSave }) {
+function EditBeerModal({ ratingId, onClose, onSave }) {
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    supabase.from('beers').select('*').eq('id', beerId).single().then(({ data }) => {
-      if (data) setForm(data)
+    supabase.from('ratings').select('beer_id').eq('id', ratingId).single().then(({ data: r }) => {
+      if (!r?.beer_id) return
+      supabase.from('beers').select('*').eq('id', r.beer_id).single().then(({ data }) => {
+        if (data) setForm(data)
+      })
     })
-  }, [beerId])
+  }, [ratingId])
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
@@ -214,7 +217,7 @@ function EditBeerModal({ beerId, onClose, onSave }) {
       style_category: form.style_category || null,
       abv:            form.abv ? parseFloat(form.abv) : null,
       colour:         form.colour || null,
-    }).eq('id', beerId)
+    }).eq('id', form.id)
     setSaving(false)
     onSave()
   }

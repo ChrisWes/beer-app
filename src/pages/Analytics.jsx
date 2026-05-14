@@ -18,7 +18,7 @@ export default function Analytics() {
       { data: profileData },
       { data: ratingData },
     ] = await Promise.all([
-      supabase.from('beer_leaderboard').select('*').limit(20),
+      supabase.from('beer_leaderboard').select('*').limit(200),
       supabase.from('venue_leaderboard').select('*').limit(10),
       supabase.from('user_taste_profiles').select('*'),
       supabase.from('feed').select('*').limit(500),
@@ -99,21 +99,7 @@ function GroupTab({ ratings, profiles }) {
   const topAdjuncts = Object.entries(adjunctCounts).sort(([,a],[,b]) => b-a).slice(0,5)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-      {topDrinker && (
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-            Most dedicated drinker
-          </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem' }}>
-            {topDrinker[0]}
-          </div>
-          <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-            {topDrinker[1]} beers logged
-          </div>
-        </div>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 24 }}>
 
       {highestRated && (
         <div className="card" style={{ padding: 16 }}>
@@ -175,13 +161,42 @@ function GroupTab({ ratings, profiles }) {
 
 // ── Beer leaderboard ──────────────────────────────────────────
 
+const STYLE_LABELS = {
+  pale_ale: 'Pale Ale', ipa: 'IPA', lager: 'Lager',
+  stout_porter: 'Stout/Porter', imperial_stout: 'Imperial Stout',
+  sour_wild: 'Sour/Wild', wheat: 'Wheat', belgian: 'Belgian',
+  amber_red: 'Amber/Red', barleywine: 'Barleywine',
+  speciality: 'Speciality', other: 'Other',
+}
+
 function BeersTab({ beers }) {
+  const [styleFilter, setStyleFilter] = useState(null)
+
+  const styles = [...new Set(beers.map(b => b.style_category).filter(Boolean))].sort()
+  const visible = styleFilter ? beers.filter(b => b.style_category === styleFilter) : beers
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {beers.length === 0 && (
+      {styles.length > 0 && (
+        <div className="pill-group" style={{ flexWrap: 'wrap' }}>
+          <button
+            className={`pill ${!styleFilter ? 'selected' : ''}`}
+            onClick={() => setStyleFilter(null)}
+          >All</button>
+          {styles.map(s => (
+            <button
+              key={s}
+              className={`pill ${styleFilter === s ? 'selected' : ''}`}
+              onClick={() => setStyleFilter(f => f === s ? null : s)}
+            >{STYLE_LABELS[s] ?? s}</button>
+          ))}
+        </div>
+      )}
+
+      {visible.length === 0 && (
         <div className="empty-state"><p>No beers rated by multiple people yet.</p></div>
       )}
-      {beers.map((b, i) => (
+      {visible.map((b, i) => (
         <div key={b.id} className="feed-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{

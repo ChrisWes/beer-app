@@ -109,52 +109,27 @@ export default function Admin() {
     const beerKeys = Object.keys(uniqueBeers)
     const beerMap = new Map()
 
-    // Step 2: look up existing beers with parallel .eq() queries (handles special chars correctly)
-    addLog(`Looking up ${beerKeys.length} unique beers...`)
-    const PARALLEL = 20
-    for (let i = 0; i < beerKeys.length; i += PARALLEL) {
-      const batch = beerKeys.slice(i, i + PARALLEL)
-      const results = await Promise.all(
-        batch.map(k => supabase.from('beers')
-          .select('id, name, brewery')
-          .eq('name', uniqueBeers[k].beer_name)
-          .eq('brewery', uniqueBeers[k].brewery)
-          .maybeSingle()
-        )
-      )
-      for (const { data } of results) {
-        if (data) beerMap.set(`${data.name.toLowerCase()}|||${data.brewery.toLowerCase()}`, data.id)
-      }
+    // Step 2: single RPC call — find or create all beers server-side (one round trip)
+    addLog(`Finding/creating ${beerKeys.length} beers...`)
+    const { data: beerResults, error: beerError } = await supabase.rpc('find_or_create_beers', {
+      p_beers: beerKeys.map(k => ({
+        name: uniqueBeers[k].beer_name,
+        brewery: uniqueBeers[k].brewery,
+        style: uniqueBeers[k].style || null,
+        abv: uniqueBeers[k].abv || null,
+        style_category: mapStyleCategory(uniqueBeers[k].style) || null,
+      })),
+      p_user_id: selectedUser,
+    })
+    if (beerError) {
+      addLog(`Beer error: ${beerError.message}`)
+      setImporting(false)
+      return
     }
-
-    // Step 3: insert beers not already found, in chunks of 50
-    const toInsert = beerKeys.filter(k => !beerMap.has(k)).map(k => uniqueBeers[k])
-    if (toInsert.length > 0) {
-      addLog(`Inserting ${toInsert.length} new beers...`)
-      const CHUNK = 50
-      for (let i = 0; i < toInsert.length; i += CHUNK) {
-        const { data: inserted, error: beerError } = await supabase
-          .from('beers')
-          .insert(toInsert.slice(i, i + CHUNK).map(c => ({
-            name: c.beer_name,
-            brewery: c.brewery,
-            style: c.style || null,
-            abv: c.abv || null,
-            style_category: mapStyleCategory(c.style),
-            untappd_id: c.untappd_checkin_id ? `checkin_${c.untappd_checkin_id}` : null,
-            created_by: selectedUser,
-          })))
-          .select('id, name, brewery')
-        if (beerError) {
-          addLog(`Beer insert error (chunk ${Math.floor(i / CHUNK) + 1}): ${beerError.message}`)
-        } else {
-          beersCreated += inserted.length
-          for (const b of inserted) {
-            beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
-          }
-        }
-      }
+    for (const b of beerResults ?? []) {
+      beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
     }
+    beersCreated = (beerResults ?? []).filter(b => b.is_new).length
 
     // Step 4: build ratings array
     const ratings = []

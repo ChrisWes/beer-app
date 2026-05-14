@@ -109,46 +109,32 @@ export default function Admin() {
     const beerKeys = Object.keys(uniqueBeers)
     const beerMap = new Map()
 
-    // Step 2: fetch only the beers that appear in this import (by name)
-    addLog(`Looking up ${beerKeys.length} unique beers...`)
-    const importNames = [...new Set(beerKeys.map(k => uniqueBeers[k].beer_name))]
-    const FETCH_CHUNK = 100
-    for (let i = 0; i < importNames.length; i += FETCH_CHUNK) {
-      const { data } = await supabase.from('beers')
+    // Step 2: upsert all unique beers — unique constraint on (name, brewery) handles dedup
+    addLog(`Upserting ${beerKeys.length} unique beers...`)
+    const allRows = beerKeys.map(k => uniqueBeers[k]).map(c => ({
+      name: c.beer_name,
+      brewery: c.brewery,
+      style: c.style || null,
+      abv: c.abv || null,
+      style_category: mapStyleCategory(c.style),
+      untappd_id: c.untappd_checkin_id ? `checkin_${c.untappd_checkin_id}` : null,
+      created_by: selectedUser,
+    }))
+    const CHUNK = 50
+    for (let i = 0; i < allRows.length; i += CHUNK) {
+      const { data: upserted, error: beerError } = await supabase
+        .from('beers')
+        .upsert(allRows.slice(i, i + CHUNK), { onConflict: 'name,brewery', ignoreDuplicates: false })
         .select('id, name, brewery')
-        .in('name', importNames.slice(i, i + FETCH_CHUNK))
-      for (const b of data ?? []) {
-        beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
-      }
-    }
-
-    // Step 3: insert beers not already in the DB, in chunks of 50
-    const toInsert = beerKeys.filter(k => !beerMap.has(k)).map(k => uniqueBeers[k])
-    if (toInsert.length > 0) {
-      addLog(`Inserting ${toInsert.length} new beers...`)
-      const rows = toInsert.map(c => ({
-        name: c.beer_name,
-        brewery: c.brewery,
-        style: c.style || null,
-        abv: c.abv || null,
-        style_category: mapStyleCategory(c.style),
-        untappd_id: c.untappd_checkin_id ? `checkin_${c.untappd_checkin_id}` : null,
-        created_by: selectedUser,
-      }))
-      const CHUNK = 50
-      for (let i = 0; i < rows.length; i += CHUNK) {
-        const { data: inserted, error: beerError } = await supabase
-          .from('beers').insert(rows.slice(i, i + CHUNK)).select('id, name, brewery')
-        if (beerError) {
-          addLog(`Beer insert error (chunk ${Math.floor(i / CHUNK) + 1}): ${beerError.message}`)
-        } else {
-          beersCreated += inserted.length
-          for (const b of inserted) {
-            beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
-          }
+      if (beerError) {
+        addLog(`Beer upsert error (chunk ${Math.floor(i / CHUNK) + 1}): ${beerError.message}`)
+      } else {
+        for (const b of upserted ?? []) {
+          beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
         }
       }
     }
+    beersCreated = beerMap.size
 
     // Step 4: build ratings array
     const ratings = []

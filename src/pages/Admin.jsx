@@ -4,21 +4,21 @@ import { useAuth } from '../context/AuthContext'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
-// Map Untappd style strings to our style categories
-function mapStyleCategory(style) {
-  if (!style) return 'other'
-  const s = style.toLowerCase()
-  if (s.includes('imperial stout') || s.includes('imperial porter')) return 'imperial_stout'
+// Infer style category from style string and/or beer name
+function mapStyleCategory(style, beerName = '') {
+  const s = `${style || ''} ${beerName || ''}`.toLowerCase()
+  if (!s.trim()) return null
+  if (s.includes('imperial stout') || s.includes('imperial porter') || s.includes('russian imperial')) return 'imperial_stout'
   if (s.includes('stout') || s.includes('porter')) return 'stout_porter'
-  if (s.includes('ipa') || s.includes('india pale')) return 'ipa'
+  if (s.includes('ipa') || s.includes('india pale') || s.includes('india ipa')) return 'ipa'
   if (s.includes('pale ale')) return 'pale_ale'
-  if (s.includes('lager') || s.includes('pilsner') || s.includes('pilsener') || s.includes('helles') || s.includes('kolsch') || s.includes('kölsch')) return 'lager'
-  if (s.includes('sour') || s.includes('lambic') || s.includes('gueuze') || s.includes('gose') || s.includes('berliner') || s.includes('wild') || s.includes('saison')) return 'sour_wild'
-  if (s.includes('wheat') || s.includes('hefeweizen') || s.includes('witbier')) return 'wheat'
-  if (s.includes('belgian') || s.includes('tripel') || s.includes('dubbel') || s.includes('quad')) return 'belgian'
+  if (s.includes('lager') || s.includes('pilsner') || s.includes('pilsener') || s.includes('helles') || s.includes('kolsch') || s.includes('kölsch') || s.includes('pils')) return 'lager'
+  if (s.includes('sour') || s.includes('lambic') || s.includes('gueuze') || s.includes('gose') || s.includes('berliner') || s.includes('wild ale') || s.includes('saison') || s.includes('kriek')) return 'sour_wild'
+  if (s.includes('wheat') || s.includes('hefeweizen') || s.includes('witbier') || s.includes('weizen') || s.includes('wit')) return 'wheat'
+  if (s.includes('belgian') || s.includes('tripel') || s.includes('dubbel') || s.includes('quadrupel') || s.includes(' quad')) return 'belgian'
   if (s.includes('amber') || s.includes('red ale') || s.includes('red ipa')) return 'amber_red'
   if (s.includes('barleywine') || s.includes('barley wine')) return 'barleywine'
-  return 'other'
+  return null
 }
 
 export default function Admin() {
@@ -105,7 +105,7 @@ export default function Admin() {
         brewery:        c.brewery      || null,
         style:          c.style        || null,
         abv:            c.abv          || null,
-        style_category: mapStyleCategory(c.style) || null,
+        style_category: mapStyleCategory(c.style, c.beer_name) || null,
         score:          c.score        ?? null,
         note:           c.note         || null,
         drank_at:       c.drank_at     || null,

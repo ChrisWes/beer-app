@@ -182,6 +182,7 @@ function VenueDetailModal({ venue, onClose, onUpdate }) {
   const { profile } = useAuth()
   const [myScore, setMyScore] = useState(7)
   const [myNote, setMyNote] = useState('')
+  const [visitedAt, setVisitedAt] = useState(new Date().toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
   const [fullVenue, setFullVenue] = useState(null)
   const [editorName, setEditorName] = useState(null)
@@ -218,6 +219,7 @@ function VenueDetailModal({ venue, onClose, onUpdate }) {
       venue_id: venue.id,
       score: myScore,
       note: myNote || null,
+      visited_at: visitedAt,
     })
     setSaving(false)
     onClose()
@@ -317,6 +319,10 @@ function VenueDetailModal({ venue, onClose, onUpdate }) {
                 <div className="score-display">{myScore}<span>/10</span></div>
                 <input type="range" min="1" max="10" step="1" value={myScore} onChange={e => setMyScore(e.target.value)} />
               </div>
+            </div>
+            <div className="form-field">
+              <label>Date</label>
+              <input type="date" value={visitedAt} onChange={e => setVisitedAt(e.target.value)} />
             </div>
             <div className="form-field">
               <label>Note</label>

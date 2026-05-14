@@ -296,7 +296,7 @@ input, textarea, select {
 /* ── Page layout ─────────────────────────────────────────── */
 .page {
   padding-top: 24px;
-  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 24px);
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 48px);
   min-height: 100dvh;
 }
 

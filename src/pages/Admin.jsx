@@ -109,6 +109,7 @@ export default function Admin() {
         score:          c.score        ?? null,
         note:           c.note         || null,
         drank_at:       c.drank_at     || null,
+        venue_name:     c.venue_name   || null,
       })),
       p_user_id: selectedUser,
     })

@@ -114,28 +114,30 @@ export default function Admin() {
       if (!beerMap.has(key) && !toInsert[key]) toInsert[key] = c
     }
 
-    // Step 3: batch insert new beers
+    // Step 3: batch insert new beers in chunks of 50
     const newBeers = Object.values(toInsert)
     if (newBeers.length > 0) {
       addLog(`Inserting ${newBeers.length} new beers...`)
-      const { data: inserted, error: beerError } = await supabase.from('beers').insert(
-        newBeers.map(c => ({
-          name: c.beer_name,
-          brewery: c.brewery,
-          style: c.style || null,
-          abv: c.abv || null,
-          style_category: mapStyleCategory(c.style),
-          untappd_id: c.untappd_checkin_id ? `checkin_${c.untappd_checkin_id}` : null,
-          created_by: selectedUser,
-        }))
-      ).select('id, name, brewery')
-
-      if (beerError) {
-        addLog(`Beer insert error: ${beerError.message}`)
-      } else {
-        beersCreated = inserted.length
-        for (const b of inserted) {
-          beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
+      const rows = newBeers.map(c => ({
+        name: c.beer_name,
+        brewery: c.brewery,
+        style: c.style || null,
+        abv: c.abv || null,
+        style_category: mapStyleCategory(c.style),
+        untappd_id: c.untappd_checkin_id ? `checkin_${c.untappd_checkin_id}` : null,
+        created_by: selectedUser,
+      }))
+      const CHUNK = 50
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const { data: inserted, error: beerError } = await supabase
+          .from('beers').insert(rows.slice(i, i + CHUNK)).select('id, name, brewery')
+        if (beerError) {
+          addLog(`Beer insert error (chunk ${Math.floor(i / CHUNK) + 1}): ${beerError.message}`)
+        } else {
+          beersCreated += inserted.length
+          for (const b of inserted) {
+            beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
+          }
         }
       }
     }

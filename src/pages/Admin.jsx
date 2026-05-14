@@ -99,26 +99,34 @@ export default function Admin() {
 
     addLog(`Starting import of ${checkins.length} check-ins for user ${selectedUser}...`)
 
-    // Step 1: fetch all existing beers in one request
-    addLog('Fetching existing beers...')
-    const { data: allBeers } = await supabase.from('beers').select('id, name, brewery')
-    const beerMap = new Map(
-      (allBeers ?? []).map(b => [`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id])
-    )
-
-    // Step 2: deduplicate and find beers that need inserting
-    const toInsert = {}
+    // Step 1: deduplicate beers in the import
+    const uniqueBeers = {}
     for (const c of checkins) {
       if (!c.beer_name || !c.brewery) continue
       const key = `${c.beer_name.toLowerCase()}|||${c.brewery.toLowerCase()}`
-      if (!beerMap.has(key) && !toInsert[key]) toInsert[key] = c
+      if (!uniqueBeers[key]) uniqueBeers[key] = c
+    }
+    const beerKeys = Object.keys(uniqueBeers)
+    const beerMap = new Map()
+
+    // Step 2: fetch only the beers that appear in this import (by name)
+    addLog(`Looking up ${beerKeys.length} unique beers...`)
+    const importNames = [...new Set(beerKeys.map(k => uniqueBeers[k].beer_name))]
+    const FETCH_CHUNK = 100
+    for (let i = 0; i < importNames.length; i += FETCH_CHUNK) {
+      const { data } = await supabase.from('beers')
+        .select('id, name, brewery')
+        .in('name', importNames.slice(i, i + FETCH_CHUNK))
+      for (const b of data ?? []) {
+        beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
+      }
     }
 
-    // Step 3: batch insert new beers in chunks of 50
-    const newBeers = Object.values(toInsert)
-    if (newBeers.length > 0) {
-      addLog(`Inserting ${newBeers.length} new beers...`)
-      const rows = newBeers.map(c => ({
+    // Step 3: insert beers not already in the DB, in chunks of 50
+    const toInsert = beerKeys.filter(k => !beerMap.has(k)).map(k => uniqueBeers[k])
+    if (toInsert.length > 0) {
+      addLog(`Inserting ${toInsert.length} new beers...`)
+      const rows = toInsert.map(c => ({
         name: c.beer_name,
         brewery: c.brewery,
         style: c.style || null,

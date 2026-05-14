@@ -26,12 +26,32 @@ export default function Beers() {
 
   useEffect(() => {
     supabase
-      .from('beer_leaderboard')
-      .select('*')
-      .order('avg_score', { ascending: false })
-      .limit(500)
+      .from('ratings')
+      .select('score, would_seek_again, beer_id, beers(id, name, brewery, style, style_category, abv)')
+      .not('beer_id', 'is', null)
+      .limit(5000)
       .then(({ data }) => {
-        setBeers(data ?? [])
+        if (!data) { setLoading(false); return }
+
+        // Aggregate per beer client-side
+        const map = {}
+        for (const r of data) {
+          const b = r.beers
+          if (!b) continue
+          if (!map[b.id]) {
+            map[b.id] = { ...b, scores: [], seek_again_count: 0 }
+          }
+          map[b.id].scores.push(parseFloat(r.score))
+          if (r.would_seek_again) map[b.id].seek_again_count++
+        }
+
+        const aggregated = Object.values(map).map(b => ({
+          ...b,
+          avg_score: b.scores.reduce((s, v) => s + v, 0) / b.scores.length,
+          rating_count: b.scores.length,
+        })).sort((a, b) => b.avg_score - a.avg_score)
+
+        setBeers(aggregated)
         setLoading(false)
       })
   }, [])

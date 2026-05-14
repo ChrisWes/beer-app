@@ -39,16 +39,43 @@ export default function LogBeerModal({ onClose, prefillRating }) {
 
   // Venues
   const [venues, setVenues] = useState([])
+  const [addingVenue, setAddingVenue] = useState(false)
+  const [newVenueName, setNewVenueName] = useState('')
+  const [newVenueTown, setNewVenueTown] = useState('')
+  const [savingVenue, setSavingVenue] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [step, setStep] = useState('beer') // 'beer' | 'rate'
   const searchTimeout = useRef(null)
 
-  useEffect(() => {
-    supabase.from('venues').select('id, name, town').order('name').then(({ data }) => {
-      setVenues(data ?? [])
-    })
-  }, [])
+  useEffect(() => { fetchVenues() }, [])
+
+  async function fetchVenues() {
+    const { data } = await supabase.from('venues').select('id, name, town').order('name')
+    setVenues(data ?? [])
+  }
+
+  async function saveNewVenue() {
+    if (!newVenueName.trim()) return
+    setSavingVenue(true)
+    const now = new Date().toISOString()
+    const { data } = await supabase.from('venues').insert({
+      name: newVenueName.trim(),
+      town: newVenueTown.trim() || null,
+      country: 'UK',
+      created_by: profile.id,
+      updated_by: profile.id,
+      updated_at: now,
+    }).select('id, name, town').single()
+    if (data) {
+      await fetchVenues()
+      setVenueId(data.id)
+    }
+    setAddingVenue(false)
+    setNewVenueName('')
+    setNewVenueTown('')
+    setSavingVenue(false)
+  }
 
   // Prefill from existing rating (for editing)
   useEffect(() => {
@@ -157,7 +184,7 @@ export default function LogBeerModal({ onClose, prefillRating }) {
     await supabase.from('ratings').insert({
       user_id: profile.id,
       beer_id: beerId,
-      venue_id: venueId || null,
+      venue_id: venueId,
       score: parseFloat(score),
       note: note || null,
       colour: colour || null,
@@ -269,6 +296,61 @@ export default function LogBeerModal({ onClose, prefillRating }) {
                   </div>
                 </>
               )}
+
+              {/* Venue — required */}
+              <div className="form-field">
+                <label>Pub / venue *</label>
+                {addingVenue ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input
+                      value={newVenueName}
+                      onChange={e => setNewVenueName(e.target.value)}
+                      placeholder="Pub name *"
+                      autoFocus
+                    />
+                    <input
+                      value={newVenueTown}
+                      onChange={e => setNewVenueTown(e.target.value)}
+                      placeholder="Town (optional)"
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setAddingVenue(false)}>
+                        Cancel
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        style={{ flex: 1 }}
+                        onClick={saveNewVenue}
+                        disabled={savingVenue || !newVenueName.trim()}
+                      >
+                        {savingVenue ? 'Adding...' : 'Add pub'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select
+                      value={venueId}
+                      onChange={e => setVenueId(e.target.value)}
+                      style={{ flex: 1 }}
+                    >
+                      <option value="" disabled>Select a pub *</option>
+                      {venues.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}{v.town ? `, ${v.town}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 12px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                      onClick={() => setAddingVenue(true)}
+                    >
+                      + New
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Score */}
               <div className="form-field">
@@ -398,28 +480,15 @@ export default function LogBeerModal({ onClose, prefillRating }) {
                 />
               </div>
 
-              {/* Venue + serving */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div className="form-field">
-                  <label>Pub / venue</label>
-                  <select value={venueId} onChange={e => setVenueId(e.target.value)}>
-                    <option value="">— none —</option>
-                    {venues.map(v => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}{v.town ? `, ${v.town}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label>Serving</label>
-                  <select value={servingSize} onChange={e => setServingSize(e.target.value)}>
-                    <option value="">— none —</option>
-                    {SERVING_SIZES.map(s => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                </div>
+              {/* Serving */}
+              <div className="form-field">
+                <label>Serving</label>
+                <select value={servingSize} onChange={e => setServingSize(e.target.value)}>
+                  <option value="">— none —</option>
+                  {SERVING_SIZES.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Date */}
@@ -453,7 +522,7 @@ export default function LogBeerModal({ onClose, prefillRating }) {
                   className="btn btn-primary"
                   style={{ flex: 1 }}
                   onClick={save}
-                  disabled={saving || !beerName.trim() || !brewery.trim()}
+                  disabled={saving || !beerName.trim() || !brewery.trim() || !venueId}
                 >
                   {saving ? 'Saving...' : 'Log this beer'}
                 </button>

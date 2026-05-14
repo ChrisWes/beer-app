@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { formatDate } from '../lib/constants'
 
 const FACILITY_ICONS = {
   has_dartboard:          { icon: '🎯', label: 'Darts' },
@@ -21,8 +22,19 @@ const BEER_OFFER_ICONS = {
   has_clear_beer_list:    { icon: '📋', label: 'Beer list' },
 }
 
+const EDITABLE_FIELDS = [
+  'name', 'town', 'country',
+  'has_cask', 'has_craft_keg', 'has_rotating_taps', 'has_bottle_can_selection', 'has_clear_beer_list',
+  'has_dartboard', 'has_pool_table', 'has_open_fire', 'has_beer_garden', 'is_dog_friendly',
+  'has_sport_tv', 'has_live_music', 'is_accessible',
+  'food_offer', 'noise_level', 'price_rating', 'tap_count_range',
+]
+
+function pickFields(obj) {
+  return Object.fromEntries(EDITABLE_FIELDS.map(k => [k, obj[k] ?? null]))
+}
+
 export default function Venues() {
-  const { profile } = useAuth()
   const [venues, setVenues] = useState([])
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
@@ -63,7 +75,13 @@ export default function Venues() {
       </div>
 
       {addOpen && <AddVenueModal onClose={() => { setAddOpen(false); fetchVenues() }} />}
-      {selected && <VenueDetailModal venue={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <VenueDetailModal
+          venue={selected}
+          onClose={() => setSelected(null)}
+          onUpdate={fetchVenues}
+        />
+      )}
     </div>
   )
 }
@@ -100,7 +118,6 @@ function VenueCard({ venue, rank, onClick }) {
         </div>
       </div>
 
-      {/* Quick facilities */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {venue.has_cask && <span className="tag">Cask</span>}
         {venue.has_craft_keg && <span className="tag">Craft keg</span>}
@@ -110,18 +127,38 @@ function VenueCard({ venue, rank, onClick }) {
   )
 }
 
-function VenueDetailModal({ venue, onClose }) {
+function VenueDetailModal({ venue, onClose, onUpdate }) {
   const { profile } = useAuth()
   const [myScore, setMyScore] = useState(7)
   const [myNote, setMyNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [fullVenue, setFullVenue] = useState(null)
+  const [editorName, setEditorName] = useState(null)
+  const [editHistory, setEditHistory] = useState([])
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
-  useEffect(() => {
-    supabase.from('venues').select('*').eq('id', venue.id).single().then(({ data }) => {
-      setFullVenue(data)
-    })
-  }, [venue.id])
+  useEffect(() => { loadVenue() }, [venue.id])
+
+  async function loadVenue() {
+    const { data } = await supabase.from('venues').select('*').eq('id', venue.id).single()
+    setFullVenue(data)
+    if (data?.updated_by) {
+      const { data: ed } = await supabase
+        .from('profiles').select('display_name').eq('id', data.updated_by).maybeSingle()
+      setEditorName(ed?.display_name ?? null)
+    }
+  }
+
+  async function loadHistory() {
+    const { data } = await supabase
+      .from('venue_edits')
+      .select('edited_at, profiles(display_name)')
+      .eq('venue_id', venue.id)
+      .order('edited_at', { ascending: false })
+      .limit(20)
+    setEditHistory(data ?? [])
+  }
 
   async function logVisit() {
     setSaving(true)
@@ -135,16 +172,39 @@ function VenueDetailModal({ venue, onClose }) {
     onClose()
   }
 
+  function handleEditSave() {
+    setEditOpen(false)
+    loadVenue()
+    onUpdate()
+  }
+
   const v = fullVenue ?? venue
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-handle" />
-        <h2 className="modal-title">{v.name}</h2>
-        <p style={{ color: 'var(--muted)', marginBottom: 20 }}>
-          {[v.town, v.country].filter(Boolean).join(', ')}
-        </p>
+
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+          <div>
+            <h2 className="modal-title" style={{ marginBottom: 2 }}>{v.name}</h2>
+            <p style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: 0 }}>
+              {[v.town, v.country].filter(Boolean).join(', ')}
+            </p>
+            {editorName && v.updated_at && (
+              <p style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 4 }}>
+                Last updated by {editorName} on {formatDate(v.updated_at)}
+              </p>
+            )}
+          </div>
+          <button
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.85rem', flexShrink: 0, marginTop: 4 }}
+            onClick={() => setEditOpen(true)}
+          >
+            Edit
+          </button>
+        </div>
 
         {/* Facilities */}
         {fullVenue && (
@@ -154,29 +214,45 @@ function VenueDetailModal({ venue, onClose }) {
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {Object.entries(FACILITY_ICONS).map(([key, { icon, label }]) =>
-                fullVenue[key] ? (
-                  <span key={key} className="tag">{icon} {label}</span>
-                ) : null
+                fullVenue[key] ? <span key={key} className="tag">{icon} {label}</span> : null
               )}
               {Object.entries(BEER_OFFER_ICONS).map(([key, { icon, label }]) =>
-                fullVenue[key] ? (
-                  <span key={key} className="tag">{icon} {label}</span>
-                ) : null
+                fullVenue[key] ? <span key={key} className="tag">{icon} {label}</span> : null
               )}
               {fullVenue.food_offer && fullVenue.food_offer !== 'none' && (
                 <span className="tag">
                   🍕 {fullVenue.food_offer === 'full_kitchen' ? 'Full kitchen' : 'Bar snacks'}
                 </span>
               )}
-              {fullVenue.price_rating && (
-                <span className="tag">{fullVenue.price_rating}</span>
-              )}
-              {fullVenue.noise_level && (
-                <span className="tag">{fullVenue.noise_level.replace('_', ' ')}</span>
-              )}
+              {fullVenue.price_rating && <span className="tag">{fullVenue.price_rating}</span>}
+              {fullVenue.noise_level && <span className="tag">{fullVenue.noise_level.replace('_', ' ')}</span>}
             </div>
           </div>
         )}
+
+        {/* Edit history toggle */}
+        <div style={{ marginBottom: 16 }}>
+          <button
+            style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '0.82rem', cursor: 'pointer', padding: 0 }}
+            onClick={() => {
+              setHistoryOpen(o => !o)
+              if (!historyOpen) loadHistory()
+            }}
+          >
+            {historyOpen ? '▾' : '▸'} Edit history
+          </button>
+          {historyOpen && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {editHistory.length === 0 ? (
+                <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>No edits recorded yet.</span>
+              ) : editHistory.map((e, i) => (
+                <span key={i} style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                  {e.profiles?.display_name ?? 'Unknown'} — {formatDate(e.edited_at)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="divider" />
 
@@ -197,6 +273,140 @@ function VenueDetailModal({ venue, onClose }) {
             </div>
             <button className="btn btn-primary" onClick={logVisit} disabled={saving}>
               {saving ? 'Saving...' : 'Log visit'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {editOpen && (
+        <EditVenueModal
+          venue={fullVenue ?? venue}
+          onClose={() => setEditOpen(false)}
+          onSave={handleEditSave}
+        />
+      )}
+    </div>
+  )
+}
+
+function EditVenueModal({ venue, onClose, onSave }) {
+  const { profile } = useAuth()
+  const [form, setForm] = useState(pickFields(venue))
+  const [saving, setSaving] = useState(false)
+
+  function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
+
+  async function save() {
+    if (!form.name?.trim()) return
+    setSaving(true)
+    const now = new Date().toISOString()
+    const fields = { ...form, name: form.name.trim(), town: form.town?.trim() || null }
+
+    await supabase.from('venues')
+      .update({ ...fields, updated_by: profile.id, updated_at: now })
+      .eq('id', venue.id)
+
+    await supabase.from('venue_edits').insert({
+      venue_id: venue.id,
+      edited_by: profile.id,
+      edited_at: now,
+      ...fields,
+    })
+
+    setSaving(false)
+    onSave()
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-handle" />
+        <h2 className="modal-title">Edit pub</h2>
+
+        <div className="form-stack">
+          <div className="form-field">
+            <label>Name *</label>
+            <input value={form.name ?? ''} onChange={e => set('name', e.target.value)} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-field">
+              <label>Town</label>
+              <input value={form.town ?? ''} onChange={e => set('town', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Country</label>
+              <input value={form.country ?? ''} onChange={e => set('country', e.target.value)} />
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label>Beer offer</label>
+            <div className="pill-group">
+              {Object.entries(BEER_OFFER_ICONS).map(([key, { icon, label }]) => (
+                <button key={key} className={`pill ${form[key] ? 'selected' : ''}`} onClick={() => set(key, !form[key])}>
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-field">
+              <label>Taps</label>
+              <select value={form.tap_count_range ?? ''} onChange={e => set('tap_count_range', e.target.value)}>
+                <option value="">—</option>
+                <option value="handful">Handful</option>
+                <option value="loads">Loads</option>
+                <option value="ridiculous">Ridiculous</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Price</label>
+              <select value={form.price_rating ?? ''} onChange={e => set('price_rating', e.target.value)}>
+                <option value="">—</option>
+                <option value="£">£</option>
+                <option value="££">££</option>
+                <option value="£££">£££</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label>Facilities</label>
+            <div className="pill-group">
+              {Object.entries(FACILITY_ICONS).map(([key, { icon, label }]) => (
+                <button key={key} className={`pill ${form[key] ? 'selected' : ''}`} onClick={() => set(key, !form[key])}>
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-field">
+              <label>Food</label>
+              <select value={form.food_offer ?? ''} onChange={e => set('food_offer', e.target.value)}>
+                <option value="">—</option>
+                <option value="none">None</option>
+                <option value="bar_snacks">Bar snacks</option>
+                <option value="full_kitchen">Full kitchen</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Noise</label>
+              <select value={form.noise_level ?? ''} onChange={e => set('noise_level', e.target.value)}>
+                <option value="">—</option>
+                <option value="quiet">Quiet</option>
+                <option value="lively">Lively</option>
+                <option value="cant_hear_yourself">Can't hear yourself</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={save} disabled={saving || !form.name?.trim()}>
+              {saving ? 'Saving...' : 'Save changes'}
             </button>
           </div>
         </div>
@@ -251,7 +461,6 @@ function AddVenueModal({ onClose }) {
             </div>
           </div>
 
-          {/* Beer offer */}
           <div className="form-field">
             <label>Beer offer</label>
             <div className="pill-group">
@@ -284,7 +493,6 @@ function AddVenueModal({ onClose }) {
             </div>
           </div>
 
-          {/* Facilities */}
           <div className="form-field">
             <label>Facilities</label>
             <div className="pill-group">

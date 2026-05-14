@@ -99,7 +99,7 @@ function GroupTab({ ratings, profiles }) {
   const topAdjuncts = Object.entries(adjunctCounts).sort(([,a],[,b]) => b-a).slice(0,5)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 80 }}>
 
       {highestRated && (
         <div className="card" style={{ padding: 16 }}>

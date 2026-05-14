@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { STYLE_CATEGORIES } from '../lib/constants'
 
 const STYLE_LABELS = {
   pale_ale: 'Pale Ale', ipa: 'IPA', lager: 'Lager',
@@ -23,6 +24,7 @@ export default function Beers() {
   const [loading, setLoading] = useState(true)
   const [styleFilter, setStyleFilter] = useState(null)
   const [scoreBandIdx, setScoreBandIdx] = useState(0)
+  const [editing, setEditing] = useState(null) // beer object being edited
 
   useEffect(() => {
     supabase
@@ -123,13 +125,20 @@ export default function Beers() {
                   </div>
                 )}
               </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div className={`score-badge ${b.avg_score >= 7.5 ? 'high' : b.avg_score >= 5 ? 'mid' : 'low'}`}>
-                  {parseFloat(b.avg_score).toFixed(1)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div className={`score-badge ${b.avg_score >= 7.5 ? 'high' : b.avg_score >= 5 ? 'mid' : 'low'}`}>
+                    {parseFloat(b.avg_score).toFixed(1)}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>
+                    {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>
-                  {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
-                </div>
+                <button
+                  onClick={() => setEditing(b)}
+                  style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.85rem', padding: '4px', lineHeight: 1 }}
+                  title="Edit beer"
+                >✎</button>
               </div>
             </div>
             {b.seek_again_count > 0 && (
@@ -139,6 +148,89 @@ export default function Beers() {
             )}
           </div>
         ))}
+      </div>
+
+      {editing && (
+        <EditBeerModal
+          beer={editing}
+          onClose={() => setEditing(null)}
+          onSave={updated => {
+            setBeers(bs => bs.map(b => b.id === updated.id ? { ...b, ...updated } : b))
+            setEditing(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function EditBeerModal({ beer, onClose, onSave }) {
+  const [form, setForm] = useState({
+    name:           beer.name ?? '',
+    brewery:        beer.brewery ?? '',
+    style:          beer.style ?? '',
+    style_category: beer.style_category ?? '',
+    abv:            beer.abv ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
+
+  async function save() {
+    if (!form.name.trim() || !form.brewery.trim()) return
+    setSaving(true)
+    await supabase.from('beers').update({
+      name:           form.name.trim(),
+      brewery:        form.brewery.trim(),
+      style:          form.style || null,
+      style_category: form.style_category || null,
+      abv:            form.abv ? parseFloat(form.abv) : null,
+    }).eq('id', beer.id)
+    setSaving(false)
+    onSave({ id: beer.id, ...form, abv: form.abv ? parseFloat(form.abv) : null })
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-handle" />
+        <h2 className="modal-title">Edit beer</h2>
+        <div className="form-stack">
+          <div className="form-field">
+            <label>Beer name</label>
+            <input value={form.name} onChange={e => set('name', e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Brewery</label>
+            <input value={form.brewery} onChange={e => set('brewery', e.target.value)} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-field">
+              <label>Style</label>
+              <input value={form.style} onChange={e => set('style', e.target.value)} placeholder="e.g. Oatmeal Stout" />
+            </div>
+            <div className="form-field">
+              <label>ABV %</label>
+              <input type="number" step="0.1" min="0" max="25" value={form.abv} onChange={e => set('abv', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-field">
+            <label>Style category</label>
+            <select value={form.style_category} onChange={e => set('style_category', e.target.value)}>
+              <option value="">— unknown —</option>
+              {STYLE_CATEGORIES.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={save}
+              disabled={saving || !form.name.trim() || !form.brewery.trim()}>
+              {saving ? 'Saving...' : 'Save changes'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

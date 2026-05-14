@@ -101,27 +101,6 @@ function GroupTab({ ratings, profiles }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-value">{total}</div>
-          <div className="stat-label">Total ratings</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{avgScore}</div>
-          <div className="stat-label">Group avg</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{profiles.length}</div>
-          <div className="stat-label">Members</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            {ratings.filter(r => r.style_category === 'imperial_stout').length}
-          </div>
-          <div className="stat-label">Imperials</div>
-        </div>
-      </div>
-
       {topDrinker && (
         <div className="card" style={{ padding: 16 }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>

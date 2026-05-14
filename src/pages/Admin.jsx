@@ -99,49 +99,76 @@ export default function Admin() {
 
     addLog(`Starting import of ${checkins.length} check-ins for user ${selectedUser}...`)
 
-    for (const checkin of checkins) {
-      if (!checkin.beer_name || !checkin.brewery) { skipped++; continue }
+    // Step 1: fetch all existing beers in one request
+    addLog('Fetching existing beers...')
+    const { data: allBeers } = await supabase.from('beers').select('id, name, brewery')
+    const beerMap = new Map(
+      (allBeers ?? []).map(b => [`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id])
+    )
 
-      // Find or create beer
-      let beerId
-      const { data: existing } = await supabase
-        .from('beers')
-        .select('id')
-        .ilike('name', checkin.beer_name)
-        .ilike('brewery', checkin.brewery)
-        .maybeSingle()
+    // Step 2: deduplicate and find beers that need inserting
+    const toInsert = {}
+    for (const c of checkins) {
+      if (!c.beer_name || !c.brewery) continue
+      const key = `${c.beer_name.toLowerCase()}|||${c.brewery.toLowerCase()}`
+      if (!beerMap.has(key) && !toInsert[key]) toInsert[key] = c
+    }
 
-      if (existing) {
-        beerId = existing.id
-      } else {
-        const { data: newBeer, error } = await supabase.from('beers').insert({
-          name: checkin.beer_name,
-          brewery: checkin.brewery,
-          style: checkin.style || null,
-          abv: checkin.abv || null,
-          style_category: mapStyleCategory(checkin.style),
-          untappd_id: checkin.untappd_checkin_id ? `checkin_${checkin.untappd_checkin_id}` : null,
+    // Step 3: batch insert new beers
+    const newBeers = Object.values(toInsert)
+    if (newBeers.length > 0) {
+      addLog(`Inserting ${newBeers.length} new beers...`)
+      const { data: inserted, error: beerError } = await supabase.from('beers').insert(
+        newBeers.map(c => ({
+          name: c.beer_name,
+          brewery: c.brewery,
+          style: c.style || null,
+          abv: c.abv || null,
+          style_category: mapStyleCategory(c.style),
+          untappd_id: c.untappd_checkin_id ? `checkin_${c.untappd_checkin_id}` : null,
           created_by: selectedUser,
-        }).select('id').single()
+        }))
+      ).select('id, name, brewery')
 
-        if (error) { addLog(`Skip (beer insert error): ${checkin.beer_name} — ${error.message}`); skipped++; continue }
-        beerId = newBeer.id
-        beersCreated++
+      if (beerError) {
+        addLog(`Beer insert error: ${beerError.message}`)
+      } else {
+        beersCreated = inserted.length
+        for (const b of inserted) {
+          beerMap.set(`${b.name.toLowerCase()}|||${b.brewery.toLowerCase()}`, b.id)
+        }
       }
+    }
 
-      // Insert rating (ignore duplicates via on-conflict)
-      const drankAt = checkin.drank_at ? new Date(checkin.drank_at).toISOString() : new Date().toISOString()
-      const { error: ratingError } = await supabase.from('ratings').upsert({
+    // Step 4: build ratings array
+    const ratings = []
+    for (const c of checkins) {
+      if (!c.beer_name || !c.brewery) { skipped++; continue }
+      const key = `${c.beer_name.toLowerCase()}|||${c.brewery.toLowerCase()}`
+      const beerId = beerMap.get(key)
+      if (!beerId) { skipped++; continue }
+      const drankAt = c.drank_at ? new Date(c.drank_at).toISOString() : new Date().toISOString()
+      ratings.push({
         user_id: selectedUser,
         beer_id: beerId,
-        score: checkin.score ?? 5,
-        note: checkin.note || null,
+        score: c.score ?? 5,
+        note: c.note || null,
         drank_at: drankAt,
         imported_from: 'untappd',
-      }, { onConflict: 'user_id,beer_id,drank_at', ignoreDuplicates: true })
+      })
+    }
 
-      if (!ratingError) ratingsCreated++
-      else { addLog(`Skip (rating error): ${checkin.beer_name} — ${ratingError.message}`); skipped++ }
+    // Step 5: batch upsert ratings
+    addLog(`Upserting ${ratings.length} ratings...`)
+    const { error: ratingError } = await supabase.from('ratings').upsert(
+      ratings,
+      { onConflict: 'user_id,beer_id,drank_at', ignoreDuplicates: true }
+    )
+
+    if (ratingError) {
+      addLog(`Rating upsert error: ${ratingError.message}`)
+    } else {
+      ratingsCreated = ratings.length
     }
 
     const result = { beersCreated, ratingsCreated, skipped }

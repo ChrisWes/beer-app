@@ -48,7 +48,7 @@ export default function Analytics() {
       {loading && <div className="loading-bar" />}
 
       {!loading && tab === 'group'   && <GroupTab ratings={allRatings} profiles={profiles} />}
-      {!loading && tab === 'beers'   && <BeersTab ratings={allRatings} beers={beers} />}
+      {!loading && tab === 'beers'   && <BeersTab ratings={allRatings} />}
       {!loading && tab === 'pubs'    && <PubsTab venues={venues} />}
       {!loading && tab === 'people'  && <PeopleTab profiles={profiles} ratings={allRatings} />}
     </div>
@@ -156,20 +156,33 @@ const STYLE_LABELS = {
   speciality: 'Speciality', other: 'Other',
 }
 
-function BeersTab({ ratings, beers }) {
+function BeersTab({ ratings }) {
   const highestRated = [...ratings].sort((a, b) => parseFloat(b.score) - parseFloat(a.score))[0]
 
-  // Best avg-scored beer per style, sorted by total logs in that style
+  // Aggregate ratings by beer+brewery to get avg scores per beer
+  const beerMap = {}
+  for (const r of ratings) {
+    const cat = r.style_category
+    if (!cat || !r.beer_name) continue
+    const key = `${r.beer_name}||${r.brewery}`
+    if (!beerMap[key]) {
+      beerMap[key] = { beer_name: r.beer_name, brewery: r.brewery, style_category: cat, scores: [] }
+    }
+    beerMap[key].scores.push(parseFloat(r.score))
+  }
+
+  // Find best avg-scored beer per style, sorted by style log count
   const styleMap = {}
   const styleCounts = {}
-  for (const b of beers) {
-    const cat = b.style_category
-    if (!cat) continue
-    styleCounts[cat] = (styleCounts[cat] || 0) + (b.rating_count || 0)
-    if (!styleMap[cat] || parseFloat(b.avg_score) > parseFloat(styleMap[cat].avg_score)) {
-      styleMap[cat] = b
+  for (const beer of Object.values(beerMap)) {
+    const cat = beer.style_category
+    const avg = beer.scores.reduce((s, v) => s + v, 0) / beer.scores.length
+    styleCounts[cat] = (styleCounts[cat] || 0) + beer.scores.length
+    if (!styleMap[cat] || avg > styleMap[cat].avg) {
+      styleMap[cat] = { ...beer, avg, count: beer.scores.length }
     }
   }
+
   const styleWinners = Object.entries(styleMap)
     .sort(([a], [b]) => (styleCounts[b] || 0) - (styleCounts[a] || 0))
 
@@ -202,13 +215,13 @@ function BeersTab({ ratings, beers }) {
                   <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
                     {STYLE_LABELS[style] ?? style}
                   </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem' }}>{b.name}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem' }}>{b.beer_name}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    {b.brewery} · {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
+                    {b.brewery} · {b.count} log{b.count !== 1 ? 's' : ''}
                   </div>
                 </div>
-                <div className={`score-badge ${parseFloat(b.avg_score) >= 7.5 ? 'high' : parseFloat(b.avg_score) >= 5 ? 'mid' : 'low'}`}>
-                  {parseFloat(b.avg_score).toFixed(1)}
+                <div className={`score-badge ${b.avg >= 7.5 ? 'high' : b.avg >= 5 ? 'mid' : 'low'}`}>
+                  {b.avg % 1 === 0 ? b.avg : b.avg.toFixed(1)}
                 </div>
               </div>
             ))}

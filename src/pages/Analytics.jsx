@@ -48,7 +48,7 @@ export default function Analytics() {
       {loading && <div className="loading-bar" />}
 
       {!loading && tab === 'group'   && <GroupTab ratings={allRatings} profiles={profiles} />}
-      {!loading && tab === 'beers'   && <BeersTab beers={beers} />}
+      {!loading && tab === 'beers'   && <BeersTab ratings={allRatings} />}
       {!loading && tab === 'pubs'    && <PubsTab venues={venues} />}
       {!loading && tab === 'people'  && <PeopleTab profiles={profiles} ratings={allRatings} />}
     </div>
@@ -91,9 +91,6 @@ function GroupTab({ ratings, profiles }) {
   }, {})
   const topDrinker = Object.entries(byUser).sort(([,a],[,b]) => b-a)[0]
 
-  // Highest rated
-  const highestRated = [...ratings].sort((a,b) => parseFloat(b.score) - parseFloat(a.score))[0]
-
   // Adjunct frequency
   const adjunctCounts = ratings.reduce((acc, r) => {
     ;(r.adjuncts ?? []).forEach(a => { acc[a] = (acc[a] || 0) + 1 })
@@ -103,22 +100,6 @@ function GroupTab({ ratings, profiles }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 80 }}>
-
-      {highestRated && (
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-            Highest single rating
-          </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem' }}>
-            {highestRated.beer_name}
-          </div>
-          <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>{highestRated.brewery}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-            <div className="score-badge high">{highestRated.score}</div>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>by {highestRated.display_name}</span>
-          </div>
-        </div>
-      )}
 
       {/* Style breakdown */}
       <div className="card" style={{ padding: 16 }}>
@@ -175,67 +156,69 @@ const STYLE_LABELS = {
   speciality: 'Speciality', other: 'Other',
 }
 
-function BeersTab({ beers }) {
-  const [styleFilter, setStyleFilter] = useState(null)
+function BeersTab({ ratings }) {
+  const highestRated = [...ratings].sort((a, b) => parseFloat(b.score) - parseFloat(a.score))[0]
 
-  const styles = [...new Set(beers.map(b => b.style_category).filter(Boolean))].sort()
-  const visible = styleFilter ? beers.filter(b => b.style_category === styleFilter) : beers
+  // Best single rating per style, sorted by style popularity
+  const styleMap = {}
+  const styleCounts = {}
+  for (const r of ratings) {
+    const cat = r.style_category
+    if (!cat) continue
+    styleCounts[cat] = (styleCounts[cat] || 0) + 1
+    if (!styleMap[cat] || parseFloat(r.score) > parseFloat(styleMap[cat].score)) {
+      styleMap[cat] = r
+    }
+  }
+  const styleWinners = Object.entries(styleMap)
+    .sort(([a], [b]) => (styleCounts[b] || 0) - (styleCounts[a] || 0))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {styles.length > 0 && (
-        <div className="pill-group" style={{ flexWrap: 'wrap' }}>
-          <button
-            className={`pill ${!styleFilter ? 'selected' : ''}`}
-            onClick={() => setStyleFilter(null)}
-          >All</button>
-          {styles.map(s => (
-            <button
-              key={s}
-              className={`pill ${styleFilter === s ? 'selected' : ''}`}
-              onClick={() => setStyleFilter(f => f === s ? null : s)}
-            >{STYLE_LABELS[s] ?? s}</button>
-          ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 80 }}>
+
+      {highestRated && (
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+            Highest single rating
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem' }}>
+            {highestRated.beer_name}
+          </div>
+          <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>{highestRated.brewery}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <div className="score-badge high">{highestRated.score}</div>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>by {highestRated.display_name}</span>
+          </div>
         </div>
       )}
 
-      {visible.length === 0 && (
-        <div className="empty-state"><p>No beers rated by multiple people yet.</p></div>
-      )}
-      {visible.map((b, i) => (
-        <div key={b.id} className="feed-card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '1.3rem',
-              color: i < 3 ? 'var(--amber)' : 'var(--muted)',
-              width: 28,
-            }}>{i+1}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem' }}>{b.name}</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-                {b.brewery}{b.abv ? ` · ${b.abv}%` : ''}
+      {styleWinners.length > 0 && (
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ marginBottom: 14 }}>Best per style</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {styleWinners.map(([style, r]) => (
+              <div key={style} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
+                    {STYLE_LABELS[style] ?? style}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem' }}>{r.beer_name}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    {r.brewery} · {r.display_name}
+                  </div>
+                </div>
+                <div className={`score-badge ${parseFloat(r.score) >= 7.5 ? 'high' : parseFloat(r.score) >= 5 ? 'mid' : 'low'}`}>
+                  {parseFloat(r.score) % 1 === 0 ? r.score : parseFloat(r.score).toFixed(1)}
+                </div>
               </div>
-              {b.style && <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{b.style}</div>}
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div className={`score-badge ${b.avg_score >= 7.5 ? 'high' : b.avg_score >= 5 ? 'mid' : 'low'}`}>
-                {parseFloat(b.avg_score).toFixed(1)}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>
-                {b.rating_count} rating{b.rating_count !== 1 ? 's' : ''}
-              </div>
-            </div>
+            ))}
           </div>
-          {b.seek_again_count > 0 && (
-            <div style={{ marginTop: 4 }}>
-              <span className="tag seek-again">
-                {b.seek_again_count} would seek again
-              </span>
-            </div>
-          )}
         </div>
-      ))}
+      )}
+
+      {ratings.length === 0 && (
+        <div className="empty-state"><p>No beers rated yet.</p></div>
+      )}
     </div>
   )
 }

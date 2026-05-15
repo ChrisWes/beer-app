@@ -240,7 +240,7 @@ function BeersTab({ ratings }) {
 
 function PubsTab({ venues }) {
   const frequent = [...venues]
-    .filter(v => v.visit_count > 1)
+    .filter(v => v.visit_count > 1 && v.name !== 'Untappd at Home')
     .sort((a, b) => b.visit_count - a.visit_count)
 
   return (

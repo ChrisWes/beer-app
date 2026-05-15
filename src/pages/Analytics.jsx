@@ -12,22 +12,27 @@ export default function Analytics() {
   useEffect(() => { fetchAll() }, [])
 
   async function fetchAll() {
-    const [
-      { data: beerData },
-      { data: venueData },
-      { data: profileData },
-      { data: ratingData },
-    ] = await Promise.all([
+    const [{ data: beerData }, { data: venueData }, { data: profileData }] = await Promise.all([
       supabase.from('beer_leaderboard').select('*').limit(200),
       supabase.from('venue_leaderboard').select('*').limit(10),
       supabase.from('user_taste_profiles').select('*'),
-      supabase.from('feed').select('*').limit(10000),
     ])
+
+    // Paginate feed to bypass server-side row cap
+    const PAGE = 1000
+    let allRatings = [], from = 0
+    while (true) {
+      const { data } = await supabase.from('feed').select('*').range(from, from + PAGE - 1)
+      if (!data?.length) break
+      allRatings = allRatings.concat(data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
 
     setBeers(beerData ?? [])
     setVenues(venueData ?? [])
     setProfiles(profileData ?? [])
-    setAllRatings(ratingData ?? [])
+    setAllRatings(allRatings)
     setLoading(false)
   }
 

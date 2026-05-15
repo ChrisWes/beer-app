@@ -31,35 +31,42 @@ export default function Beers() {
   const [editing, setEditing] = useState(null) // beer object being edited
 
   useEffect(() => {
-    supabase
-      .from('ratings')
-      .select('score, would_seek_again, beer_id, beers(id, name, brewery, style, style_category, abv)')
-      .not('beer_id', 'is', null)
-      .limit(10000)
-      .then(({ data }) => {
-        if (!data) { setLoading(false); return }
+    async function fetchAll() {
+      const PAGE = 1000
+      let allData = [], from = 0
+      while (true) {
+        const { data } = await supabase
+          .from('ratings')
+          .select('score, would_seek_again, beer_id, beers(id, name, brewery, style, style_category, abv)')
+          .not('beer_id', 'is', null)
+          .range(from, from + PAGE - 1)
+        if (!data?.length) break
+        allData = allData.concat(data)
+        if (data.length < PAGE) break
+        from += PAGE
+      }
 
-        // Aggregate per beer client-side
-        const map = {}
-        for (const r of data) {
-          const b = r.beers
-          if (!b) continue
-          if (!map[b.id]) {
-            map[b.id] = { ...b, scores: [], seek_again_count: 0 }
-          }
-          map[b.id].scores.push(parseFloat(r.score))
-          if (r.would_seek_again) map[b.id].seek_again_count++
+      const map = {}
+      for (const r of allData) {
+        const b = r.beers
+        if (!b) continue
+        if (!map[b.id]) {
+          map[b.id] = { ...b, scores: [], seek_again_count: 0 }
         }
+        map[b.id].scores.push(parseFloat(r.score))
+        if (r.would_seek_again) map[b.id].seek_again_count++
+      }
 
-        const aggregated = Object.values(map).map(b => ({
-          ...b,
-          avg_score: b.scores.reduce((s, v) => s + v, 0) / b.scores.length,
-          rating_count: b.scores.length,
-        })).sort((a, b) => b.avg_score - a.avg_score)
+      const aggregated = Object.values(map).map(b => ({
+        ...b,
+        avg_score: b.scores.reduce((s, v) => s + v, 0) / b.scores.length,
+        rating_count: b.scores.length,
+      })).sort((a, b) => b.avg_score - a.avg_score)
 
-        setBeers(aggregated)
-        setLoading(false)
-      })
+      setBeers(aggregated)
+      setLoading(false)
+    }
+    fetchAll()
   }, [])
 
   const styles = [...new Set(beers.map(b => b.style_category).filter(Boolean))].sort()

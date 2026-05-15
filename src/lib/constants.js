@@ -13,6 +13,8 @@ export const STYLE_CATEGORIES = [
   { value: 'pale_ale',       label: 'Pale Ale' },
   { value: 'ipa',            label: 'IPA' },
   { value: 'neipa',          label: 'NEIPA' },
+  { value: 'hazy_ipa',       label: 'Hazy (Hewzi) IPA' },
+  { value: 'dipa',           label: 'DIPA' },
   { value: 'west_coast_ipa', label: 'West Coast IPA' },
   { value: 'session_ipa',    label: 'Session IPA' },
   { value: 'milkshake_ipa',  label: 'Milkshake IPA' },

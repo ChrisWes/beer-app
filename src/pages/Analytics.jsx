@@ -48,7 +48,7 @@ export default function Analytics() {
       {loading && <div className="loading-bar" />}
 
       {!loading && tab === 'group'   && <GroupTab ratings={allRatings} profiles={profiles} />}
-      {!loading && tab === 'beers'   && <BeersTab ratings={allRatings} />}
+      {!loading && tab === 'beers'   && <BeersTab ratings={allRatings} beers={beers} />}
       {!loading && tab === 'pubs'    && <PubsTab venues={venues} />}
       {!loading && tab === 'people'  && <PeopleTab profiles={profiles} ratings={allRatings} />}
     </div>
@@ -156,18 +156,18 @@ const STYLE_LABELS = {
   speciality: 'Speciality', other: 'Other',
 }
 
-function BeersTab({ ratings }) {
+function BeersTab({ ratings, beers }) {
   const highestRated = [...ratings].sort((a, b) => parseFloat(b.score) - parseFloat(a.score))[0]
 
-  // Best single rating per style, sorted by style popularity
+  // Best avg-scored beer per style, sorted by total logs in that style
   const styleMap = {}
   const styleCounts = {}
-  for (const r of ratings) {
-    const cat = r.style_category
+  for (const b of beers) {
+    const cat = b.style_category
     if (!cat) continue
-    styleCounts[cat] = (styleCounts[cat] || 0) + 1
-    if (!styleMap[cat] || parseFloat(r.score) > parseFloat(styleMap[cat].score)) {
-      styleMap[cat] = r
+    styleCounts[cat] = (styleCounts[cat] || 0) + (b.rating_count || 0)
+    if (!styleMap[cat] || parseFloat(b.avg_score) > parseFloat(styleMap[cat].avg_score)) {
+      styleMap[cat] = b
     }
   }
   const styleWinners = Object.entries(styleMap)
@@ -196,19 +196,19 @@ function BeersTab({ ratings }) {
         <div className="card" style={{ padding: 16 }}>
           <h3 style={{ marginBottom: 14 }}>Best per style</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {styleWinners.map(([style, r]) => (
+            {styleWinners.map(([style, b]) => (
               <div key={style} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
                     {STYLE_LABELS[style] ?? style}
                   </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem' }}>{r.beer_name}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem' }}>{b.name}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    {r.brewery} · {r.display_name}
+                    {b.brewery} · {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
                   </div>
                 </div>
-                <div className={`score-badge ${parseFloat(r.score) >= 7.5 ? 'high' : parseFloat(r.score) >= 5 ? 'mid' : 'low'}`}>
-                  {parseFloat(r.score) % 1 === 0 ? r.score : parseFloat(r.score).toFixed(1)}
+                <div className={`score-badge ${parseFloat(b.avg_score) >= 7.5 ? 'high' : parseFloat(b.avg_score) >= 5 ? 'mid' : 'low'}`}>
+                  {parseFloat(b.avg_score).toFixed(1)}
                 </div>
               </div>
             ))}

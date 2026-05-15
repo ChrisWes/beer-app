@@ -21,7 +21,7 @@ export default function Analytics() {
       supabase.from('beer_leaderboard').select('*').limit(200),
       supabase.from('venue_leaderboard').select('*').limit(10),
       supabase.from('user_taste_profiles').select('*'),
-      supabase.from('feed').select('*').limit(500),
+      supabase.from('feed').select('*').limit(10000),
     ])
 
     setBeers(beerData ?? [])

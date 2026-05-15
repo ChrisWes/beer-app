@@ -58,8 +58,11 @@ function findBestMatch(row, existingBeers) {
 }
 
 function parseBeerCsv(text) {
-  const lines = text.trim().split(/\r?\n/)
-  const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase())
+  const clean = text.replace(/^﻿/, '').trim()  // strip BOM
+  const lines = clean.split(/\r?\n/)
+  const delim = lines[0].includes(';') ? ';' : ','
+  const splitRow = row => row.split(delim).map(c => c.trim().replace(/^"|"$/g, ''))
+  const header = splitRow(lines[0]).map(h => h.toLowerCase())
   const breweryIdx = header.findIndex(h => h === 'brewery')
   const nameIdx    = header.findIndex(h => h === 'name')
   const ratingIdx  = header.findIndex(h => h === 'rating')
@@ -67,7 +70,7 @@ function parseBeerCsv(text) {
 
   return lines.slice(1).flatMap(line => {
     if (!line.trim()) return []
-    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
+    const cols = splitRow(line)
     const raw = parseFloat(cols[ratingIdx])
     const brewery  = cols[breweryIdx]?.trim() || null
     const beerName = cols[nameIdx]?.trim()    || null

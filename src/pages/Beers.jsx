@@ -27,6 +27,7 @@ export default function Beers() {
   const [loading, setLoading] = useState(true)
   const [styleFilter, setStyleFilter] = useState(null)
   const [scoreBandIdx, setScoreBandIdx] = useState(0)
+  const [search, setSearch] = useState('')
   const [editing, setEditing] = useState(null) // beer object being edited
 
   useEffect(() => {
@@ -64,7 +65,9 @@ export default function Beers() {
   const styles = [...new Set(beers.map(b => b.style_category).filter(Boolean))].sort()
   const band = SCORE_BANDS[scoreBandIdx]
 
+  const q = search.trim().toLowerCase()
   const visible = beers
+    .filter(b => !q || b.name.toLowerCase().includes(q) || b.brewery.toLowerCase().includes(q))
     .filter(b => !styleFilter || b.style_category === styleFilter)
     .filter(band.test)
 
@@ -74,6 +77,15 @@ export default function Beers() {
         <h1>Beers</h1>
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{visible.length}</span>
       </div>
+
+      {/* Search */}
+      <input
+        type="search"
+        placeholder="Search beer or brewery..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{ marginBottom: 12 }}
+      />
 
       {/* Style filter */}
       <div className="pill-group" style={{ flexWrap: 'wrap', marginBottom: 8 }}>

@@ -63,10 +63,10 @@ function parseBeerCsv(text) {
   const delim = lines[0].includes(';') ? ';' : ','
   const splitRow = row => row.split(delim).map(c => c.trim().replace(/^"|"$/g, ''))
   const header = splitRow(lines[0]).map(h => h.toLowerCase())
-  const breweryIdx = header.findIndex(h => h === 'brewery')
-  const nameIdx    = header.findIndex(h => h === 'name')
-  const ratingIdx  = header.findIndex(h => h === 'rating')
-  if (breweryIdx < 0 || nameIdx < 0 || ratingIdx < 0) return null
+  const breweryIdx = header.findIndex(h => h.includes('brewery'))
+  const nameIdx    = header.findIndex(h => h.includes('name') && !h.includes('brewery'))
+  const ratingIdx  = header.findIndex(h => h.includes('rating') || h.includes('score'))
+  if (breweryIdx < 0 || nameIdx < 0 || ratingIdx < 0) return { error: `Columns found: ${header.join(', ')}` }
 
   return lines.slice(1).flatMap(line => {
     if (!line.trim()) return []
@@ -170,7 +170,8 @@ export default function Admin() {
     const reader = new FileReader()
     reader.onload = async ev => {
       const rows = parseBeerCsv(ev.target.result)
-      if (!rows) { setCsvError('Could not find Brewery, Name, and Rating columns.'); return }
+      if (!rows) { setCsvError('Could not parse file.'); return }
+      if (rows.error) { setCsvError(`Could not find required columns. ${rows.error}`); return }
       if (!rows.length) { setCsvError('No valid rows found in file.'); return }
 
       setCsvMatching(true)

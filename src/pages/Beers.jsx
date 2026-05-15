@@ -35,7 +35,7 @@ export default function Beers() {
       .from('ratings')
       .select('score, would_seek_again, beer_id, beers(id, name, brewery, style, style_category, abv)')
       .not('beer_id', 'is', null)
-      .limit(5000)
+      .limit(10000)
       .then(({ data }) => {
         if (!data) { setLoading(false); return }
 

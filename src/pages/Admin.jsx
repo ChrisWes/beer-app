@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -30,6 +30,59 @@ function mapStyleCategory(style, beerName = '') {
   return null
 }
 
+function normalize(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function bigramSimilarity(a, b) {
+  const s1 = normalize(a), s2 = normalize(b)
+  if (s1 === s2) return 1
+  if (s1.length < 4 || s2.length < 4) return s1 === s2 ? 1 : 0
+  const pairs = s => Array.from({ length: s.length - 1 }, (_, i) => s.slice(i, i + 2))
+  const p1 = pairs(s1), p2set = new Set(pairs(s2))
+  const hits = p1.filter(p => p2set.has(p)).length
+  return (2 * hits) / (p1.length + p2set.size)
+}
+
+function findBestMatch(row, existingBeers) {
+  let best = null, bestScore = 0
+  for (const beer of existingBeers) {
+    const nameSim    = bigramSimilarity(row.beer_name, beer.name)
+    const brewerySim = bigramSimilarity(row.brewery, beer.brewery)
+    if (nameSim >= 0.75 && brewerySim >= 0.6) {
+      const score = (nameSim * 2 + brewerySim) / 3  // name weighted more
+      if (score > bestScore) { bestScore = score; best = beer }
+    }
+  }
+  return best
+}
+
+function parseBeerCsv(text) {
+  const lines = text.trim().split(/\r?\n/)
+  const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase())
+  const breweryIdx = header.findIndex(h => h === 'brewery')
+  const nameIdx    = header.findIndex(h => h === 'name')
+  const ratingIdx  = header.findIndex(h => h === 'rating')
+  if (breweryIdx < 0 || nameIdx < 0 || ratingIdx < 0) return null
+
+  return lines.slice(1).flatMap(line => {
+    if (!line.trim()) return []
+    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
+    const raw = parseFloat(cols[ratingIdx])
+    const brewery  = cols[breweryIdx]?.trim() || null
+    const beerName = cols[nameIdx]?.trim()    || null
+    if (!brewery || !beerName || isNaN(raw)) return []
+    return [{
+      brewery, beer_name: beerName,
+      score:          ({ 1: 1, 3: 5, 5: 8 })[Math.round(raw)] ?? Math.round(raw * 2 * 10) / 10,
+      style:          null, abv: null, note: null,
+      venue_name:     null, drank_at: null,
+      imported_from:  'csv',
+      untappd_checkin_id: null,
+    }]
+  })
+}
+
 export default function Admin() {
   const { profile } = useAuth()
   const [users, setUsers] = useState([])
@@ -40,6 +93,14 @@ export default function Admin() {
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
   const [log, setLog] = useState([])
+
+  // CSV import
+  const csvRowsRef = useRef([])
+  const [csvPreview, setCsvPreview] = useState([])
+  const [csvMatching, setCsvMatching] = useState(false)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvResult, setCsvResult] = useState(null)
+  const [csvError, setCsvError] = useState(null)
 
   useEffect(() => {
     supabase.from('profiles').select('id, display_name').then(({ data }) => {
@@ -94,6 +155,53 @@ export default function Admin() {
       }
     }
     reader.readAsText(file)
+  }
+
+  function handleCsvFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCsvResult(null)
+    setCsvError(null)
+    setCsvPreview([])
+    csvRowsRef.current = []
+    const reader = new FileReader()
+    reader.onload = async ev => {
+      const rows = parseBeerCsv(ev.target.result)
+      if (!rows) { setCsvError('Could not find Brewery, Name, and Rating columns.'); return }
+      if (!rows.length) { setCsvError('No valid rows found in file.'); return }
+
+      setCsvMatching(true)
+      const { data: existingBeers } = await supabase.from('beers').select('id, name, brewery')
+      const tagged = rows.map(r => ({ ...r, match: findBestMatch(r, existingBeers ?? []) }))
+      csvRowsRef.current = tagged
+      setCsvPreview(tagged.slice(0, 5))
+      setCsvMatching(false)
+    }
+    reader.readAsText(file)
+  }
+
+  async function importCsv() {
+    if (!selectedUser || !csvRowsRef.current.length) return
+    setCsvImporting(true)
+    setCsvResult(null)
+    const checkins = csvRowsRef.current.map(r => {
+      const name    = r.match ? r.match.name    : r.beer_name
+      const brewery = r.match ? r.match.brewery : r.brewery
+      return {
+        ...r,
+        beer_name:      name,
+        brewery:        brewery,
+        style_category: mapStyleCategory('', name),
+        match:          undefined,  // don't send to RPC
+      }
+    })
+    const { data, error } = await supabase.rpc('import_untappd_checkins', {
+      p_checkins: checkins,
+      p_user_id:  selectedUser,
+    })
+    setCsvImporting(false)
+    if (error) { setCsvError(error.message); return }
+    setCsvResult(data)
   }
 
   async function importCheckins() {
@@ -273,6 +381,97 @@ export default function Admin() {
             overflowY: 'auto',
           }}>
             {log.map((line, i) => <div key={i}>{line}</div>)}
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="divider" style={{ margin: '32px 0' }} />
+
+      {/* CSV import */}
+      <h2 style={{ marginBottom: 8 }}>Import from CSV</h2>
+      <p style={{ color: 'var(--muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+        For a simple list with Brewery, Name, Rating (0–5 scale) columns.
+      </p>
+
+      <div className="form-stack">
+        <div className="form-field">
+          <label>Import for which user?</label>
+          <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}>
+            <option value="">— select a user —</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.display_name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-field">
+          <label>Upload CSV</label>
+          <input type="file" accept=".csv" onChange={handleCsvFile} style={{ padding: '8px 0' }} />
+        </div>
+
+        {csvError && (
+          <div style={{ color: 'var(--red, #c0392b)', fontSize: '0.85rem' }}>{csvError}</div>
+        )}
+
+        {csvMatching && (
+          <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Matching against existing beers...</div>
+        )}
+
+        {csvPreview.length > 0 && !csvMatching && (() => {
+          const matchCount = csvRowsRef.current.filter(r => r.match).length
+          const newCount   = csvRowsRef.current.length - matchCount
+          return (
+            <div className="card" style={{ padding: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                {csvRowsRef.current.length} rows — {matchCount} matched to existing beers, {newCount} new
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: 12 }}>
+                Preview (first 5):
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.82rem' }}>
+                {csvPreview.map((r, i) => (
+                  <div key={i}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                      <span style={{ color: 'var(--amber)', flexShrink: 0, width: 36 }}>{r.score}/10</span>
+                      <span style={{ textDecoration: r.match ? 'line-through' : 'none', color: r.match ? 'var(--muted)' : 'inherit' }}>
+                        {r.beer_name} — {r.brewery}
+                      </span>
+                    </div>
+                    {r.match && (
+                      <div style={{ paddingLeft: 44, color: 'var(--amber-soft)', fontSize: '0.78rem' }}>
+                        → matched: {r.match.name} — {r.match.brewery}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {csvRowsRef.current.length > 5 && (
+                  <div style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+                    ...and {csvRowsRef.current.length - 5} more
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 16, width: '100%' }}
+                onClick={importCsv}
+                disabled={csvImporting || !selectedUser}
+              >
+                {csvImporting
+                  ? 'Importing...'
+                  : `Import ${csvRowsRef.current.length} beers for ${users.find(u => u.id === selectedUser)?.display_name ?? '...'}`}
+              </button>
+            </div>
+          )
+        })()}
+
+        {csvResult && (
+          <div className="card" style={{ padding: 16, background: 'rgba(212,132,30,0.12)', borderColor: 'var(--amber)' }}>
+            <div style={{ fontWeight: 600, color: 'var(--amber-soft)', marginBottom: 4 }}>Import complete</div>
+            <div style={{ fontSize: '0.9rem', color: 'var(--amber-soft)' }}>
+              {csvResult.ratings_created} ratings · {csvResult.beers_created} new beers · {csvResult.skipped} skipped
+            </div>
           </div>
         )}
       </div>

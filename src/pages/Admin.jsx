@@ -102,6 +102,7 @@ export default function Admin() {
   const [csvPreview, setCsvPreview] = useState([])
   const [csvMatching, setCsvMatching] = useState(false)
   const [csvImporting, setCsvImporting] = useState(false)
+  const [csvProgress, setCsvProgress] = useState(null) // { done, total }
   const [csvResult, setCsvResult] = useState(null)
   const [csvError, setCsvError] = useState(null)
 
@@ -188,6 +189,8 @@ export default function Admin() {
     if (!selectedUser || !csvRowsRef.current.length) return
     setCsvImporting(true)
     setCsvResult(null)
+    setCsvProgress(null)
+
     const checkins = csvRowsRef.current.map(r => {
       const name    = r.match ? r.match.name    : r.beer_name
       const brewery = r.match ? r.match.brewery : r.brewery
@@ -196,16 +199,29 @@ export default function Admin() {
         beer_name:      name,
         brewery:        brewery,
         style_category: mapStyleCategory('', name),
-        match:          undefined,  // don't send to RPC
+        match:          undefined,
       }
     })
-    const { data, error } = await supabase.rpc('import_untappd_checkins', {
-      p_checkins: checkins,
-      p_user_id:  selectedUser,
-    })
+
+    const BATCH = 500
+    const total = checkins.length
+    let beersCreated = 0, ratingsCreated = 0, skipped = 0
+
+    for (let i = 0; i < total; i += BATCH) {
+      setCsvProgress({ done: i, total })
+      const { data, error } = await supabase.rpc('import_untappd_checkins', {
+        p_checkins: checkins.slice(i, i + BATCH),
+        p_user_id:  selectedUser,
+      })
+      if (error) { setCsvError(error.message); setCsvImporting(false); return }
+      beersCreated   += data.beers_created   ?? 0
+      ratingsCreated += data.ratings_created ?? 0
+      skipped        += data.skipped         ?? 0
+    }
+
+    setCsvProgress(null)
     setCsvImporting(false)
-    if (error) { setCsvError(error.message); return }
-    setCsvResult(data)
+    setCsvResult({ beers_created: beersCreated, ratings_created: ratingsCreated, skipped })
   }
 
   async function importCheckins() {
@@ -463,7 +479,9 @@ export default function Admin() {
                 disabled={csvImporting || !selectedUser}
               >
                 {csvImporting
-                  ? 'Importing...'
+                  ? csvProgress
+                    ? `Importing... ${csvProgress.done} / ${csvProgress.total}`
+                    : 'Importing...'
                   : `Import ${csvRowsRef.current.length} beers for ${users.find(u => u.id === selectedUser)?.display_name ?? '...'}`}
               </button>
             </div>

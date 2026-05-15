@@ -79,8 +79,6 @@ export default function Beers() {
       key,
       label: key === '__none__' ? 'Uncategorised' : (STYLE_LABELS[key] ?? key),
       count: list.length,
-      avgScore: list.reduce((s, b) => s + b.avg_score, 0) / list.length,
-      topBeer: list[0],
     })).sort((a, b) => b.count - a.count)
   }, [beers])
 
@@ -173,20 +171,11 @@ export default function Beers() {
                 borderRadius: 'var(--radius)', padding: '14px 12px', textAlign: 'left',
                 cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6 }}
             >
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.0rem', color: 'var(--white)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', color: 'var(--white)' }}>
                 {sc.label}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+              <div style={{ fontSize: '0.95rem', color: 'var(--muted)' }}>
                 {sc.count} beer{sc.count !== 1 ? 's' : ''}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-                <div style={{ fontSize: '0.78rem', color: 'var(--amber-soft)', overflow: 'hidden',
-                  textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 }}>
-                  {sc.topBeer?.name}
-                </div>
-                <div className={`score-badge ${sc.avgScore >= 7.5 ? 'high' : sc.avgScore >= 5 ? 'mid' : 'low'}`}>
-                  {sc.avgScore.toFixed(1)}
-                </div>
               </div>
             </button>
           ))}

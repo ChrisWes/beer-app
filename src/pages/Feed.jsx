@@ -96,7 +96,7 @@ export default function Feed() {
   return (
     <div className="container page">
       <div className="page-header">
-        <h1>Rounds</h1>
+        <h1>Rounds — Latest Feed</h1>
         <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
           {ratings.length} pints logged
         </span>

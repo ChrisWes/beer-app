@@ -188,21 +188,25 @@ function EditBeerModal({ beer, onClose, onSave }) {
     abv:            beer.abv ?? '',
   })
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
   async function save() {
     if (!form.name.trim() || !form.brewery.trim()) return
     setSaving(true)
-    await supabase.from('beers').update({
+    setSaveError(null)
+    const trimmed = {
       name:           form.name.trim(),
       brewery:        form.brewery.trim(),
-      style:          form.style || null,
+      style:          form.style.trim() || null,
       style_category: form.style_category || null,
       abv:            form.abv ? parseFloat(form.abv) : null,
-    }).eq('id', beer.id)
+    }
+    const { error } = await supabase.from('beers').update(trimmed).eq('id', beer.id)
     setSaving(false)
-    onSave({ id: beer.id, ...form, abv: form.abv ? parseFloat(form.abv) : null })
+    if (error) { setSaveError(error.message); return }
+    onSave({ id: beer.id, ...trimmed })
   }
 
   return (
@@ -238,6 +242,11 @@ function EditBeerModal({ beer, onClose, onSave }) {
               ))}
             </select>
           </div>
+          {saveError && (
+            <div style={{ color: 'var(--red, #c0392b)', fontSize: '0.82rem', padding: '8px 0' }}>
+              Error: {saveError}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
             <button className="btn btn-primary" style={{ flex: 1 }} onClick={save}

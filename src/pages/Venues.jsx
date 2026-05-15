@@ -34,6 +34,12 @@ function pickFields(obj) {
   return Object.fromEntries(EDITABLE_FIELDS.map(k => [k, obj[k] ?? null]))
 }
 
+function trimFields(obj) {
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [k, typeof v === 'string' ? (v.trim() || null) : v])
+  )
+}
+
 export default function Venues() {
   const [venues, setVenues] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +47,7 @@ export default function Venues() {
   const [selected, setSelected] = useState(null)
   const [sortBy, setSortBy] = useState('score') // 'score' | 'name'
   const [country, setCountry] = useState('') // '' = all
+  const [search, setSearch] = useState('')
 
   useEffect(() => { fetchVenues() }, [])
 
@@ -52,10 +59,12 @@ export default function Venues() {
     setLoading(false)
   }
 
-  const countries = [...new Set(venues.map(v => v.country).filter(Boolean))].sort()
+  const countries = [...new Set(venues.map(v => v.country?.trim()).filter(Boolean))].sort()
 
+  const q = search.trim().toLowerCase()
   const visible = venues
-    .filter(v => !country || v.country === country)
+    .filter(v => !q || v.name.toLowerCase().includes(q) || v.town?.toLowerCase().includes(q))
+    .filter(v => !country || v.country?.trim() === country)
     .sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name)
       // score: venues with a score first, then no-score venues alphabetically
@@ -73,6 +82,14 @@ export default function Venues() {
           + Add pub
         </button>
       </div>
+
+      <input
+        type="search"
+        placeholder="Search pub or town..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{ marginBottom: 12 }}
+      />
 
       {/* Sort + filter controls */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -357,7 +374,7 @@ function EditVenueModal({ venue, onClose, onSave }) {
     if (!form.name?.trim()) return
     setSaving(true)
     const now = new Date().toISOString()
-    const fields = { ...form, name: form.name.trim(), town: form.town?.trim() || null }
+    const fields = trimFields(form)
 
     await supabase.from('venues')
       .update({ ...fields, updated_by: profile.id, updated_at: now })
@@ -491,7 +508,7 @@ function AddVenueModal({ onClose }) {
   async function save() {
     if (!form.name.trim()) return
     setSaving(true)
-    await supabase.from('venues').insert({ ...form, created_by: profile.id })
+    await supabase.from('venues').insert({ ...trimFields(form), created_by: profile.id })
     setSaving(false)
     onClose()
   }

@@ -71,7 +71,9 @@ function GroupTab({ ratings, profiles }) {
   }, {})
 
   const styleLabels = {
-    pale_ale: 'Pale Ale', ipa: 'IPA', lager: 'Lager',
+    pale_ale: 'Pale Ale', ipa: 'IPA', neipa: 'NEIPA',
+    west_coast_ipa: 'West Coast IPA', session_ipa: 'Session IPA', milkshake_ipa: 'Milkshake IPA',
+    lager: 'Lager', dunkel: 'Dunkel', saison: 'Saison',
     stout_porter: 'Stout/Porter', imperial_stout: 'Imperial Stout',
     sour_wild: 'Sour/Wild', wheat: 'Wheat', belgian: 'Belgian',
     amber_red: 'Amber/Red', barleywine: 'Barleywine',
@@ -79,7 +81,7 @@ function GroupTab({ ratings, profiles }) {
     speciality: 'Speciality', other: 'Other',
   }
 
-  const sortedStyles = Object.entries(styleCounts).sort(([,a],[,b]) => b-a).slice(0,8)
+  const sortedStyles = Object.entries(styleCounts).sort(([,a],[,b]) => b-a)
   const maxStyle = sortedStyles[0]?.[1] ?? 1
 
   // Most prolific drinker
@@ -163,7 +165,9 @@ function GroupTab({ ratings, profiles }) {
 // ── Beer leaderboard ──────────────────────────────────────────
 
 const STYLE_LABELS = {
-  pale_ale: 'Pale Ale', ipa: 'IPA', lager: 'Lager',
+  pale_ale: 'Pale Ale', ipa: 'IPA', neipa: 'NEIPA',
+  west_coast_ipa: 'West Coast IPA', session_ipa: 'Session IPA', milkshake_ipa: 'Milkshake IPA',
+  lager: 'Lager', dunkel: 'Dunkel', saison: 'Saison',
   stout_porter: 'Stout/Porter', imperial_stout: 'Imperial Stout',
   sour_wild: 'Sour/Wild', wheat: 'Wheat', belgian: 'Belgian',
   amber_red: 'Amber/Red', barleywine: 'Barleywine',

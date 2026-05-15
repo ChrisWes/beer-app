@@ -12,7 +12,13 @@ export const BEER_COLOURS = [
 export const STYLE_CATEGORIES = [
   { value: 'pale_ale',       label: 'Pale Ale' },
   { value: 'ipa',            label: 'IPA' },
+  { value: 'neipa',          label: 'NEIPA' },
+  { value: 'west_coast_ipa', label: 'West Coast IPA' },
+  { value: 'session_ipa',    label: 'Session IPA' },
+  { value: 'milkshake_ipa',  label: 'Milkshake IPA' },
   { value: 'lager',          label: 'Lager' },
+  { value: 'dunkel',         label: 'Dunkel' },
+  { value: 'saison',         label: 'Saison' },
   { value: 'stout_porter',   label: 'Stout / Porter' },
   { value: 'imperial_stout', label: 'Imperial Stout' },
   { value: 'sour_wild',      label: 'Sour / Wild' },

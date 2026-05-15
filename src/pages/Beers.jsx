@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { STYLE_CATEGORIES } from '../lib/constants'
 
@@ -28,7 +28,7 @@ export default function Beers() {
   const [styleFilter, setStyleFilter] = useState(null)
   const [scoreBandIdx, setScoreBandIdx] = useState(0)
   const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState(null) // beer object being edited
+  const [editing, setEditing] = useState(null)
 
   useEffect(() => {
     async function fetchAll() {
@@ -50,9 +50,7 @@ export default function Beers() {
       for (const r of allData) {
         const b = r.beers
         if (!b) continue
-        if (!map[b.id]) {
-          map[b.id] = { ...b, scores: [], seek_again_count: 0 }
-        }
+        if (!map[b.id]) map[b.id] = { ...b, scores: [], seek_again_count: 0 }
         map[b.id].scores.push(parseFloat(r.score))
         if (r.would_seek_again) map[b.id].seek_again_count++
       }
@@ -69,108 +67,181 @@ export default function Beers() {
     fetchAll()
   }, [])
 
-  const styles = [...new Set(beers.map(b => b.style_category).filter(Boolean))].sort()
-  const band = SCORE_BANDS[scoreBandIdx]
+  // Style cards — computed once after beers load
+  const styleCards = useMemo(() => {
+    const groups = {}
+    for (const b of beers) {
+      const key = b.style_category || '__none__'
+      if (!groups[key]) groups[key] = []
+      groups[key].push(b)
+    }
+    return Object.entries(groups).map(([key, list]) => ({
+      key,
+      label: key === '__none__' ? 'Uncategorised' : (STYLE_LABELS[key] ?? key),
+      count: list.length,
+      avgScore: list.reduce((s, b) => s + b.avg_score, 0) / list.length,
+      topBeer: list[0],
+    })).sort((a, b) => b.count - a.count)
+  }, [beers])
 
-  const q = search.trim().toLowerCase()
-  const visible = beers
-    .filter(b => !q || b.name.toLowerCase().includes(q) || b.brewery.toLowerCase().includes(q))
-    .filter(b => !styleFilter || b.style_category === styleFilter)
-    .filter(band.test)
+  const q            = search.trim().toLowerCase()
+  const isSearchMode = q.length > 0
+  const isDrillDown  = !isSearchMode && styleFilter !== null
+  const isStyleGrid  = !isSearchMode && styleFilter === null
+
+  const band = SCORE_BANDS[scoreBandIdx]
+  const visible = useMemo(() => {
+    if (!q && !styleFilter) return []
+    let list = beers
+    if (q) list = list.filter(b =>
+      b.name.toLowerCase().includes(q) || b.brewery.toLowerCase().includes(q))
+    if (styleFilter) list = list.filter(b =>
+      styleFilter === '__none__' ? !b.style_category : b.style_category === styleFilter)
+    list = list.filter(band.test)
+    return q ? list.slice(0, 100) : list
+  }, [beers, q, styleFilter, scoreBandIdx, band])
+
+  const styleList = useMemo(() =>
+    [...new Set(beers.map(b => b.style_category).filter(Boolean))].sort()
+  , [beers])
 
   return (
     <div className="container page">
       <div className="page-header">
-        <h1>Beers</h1>
-        <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{visible.length}</span>
+        {isDrillDown ? (
+          <button
+            onClick={() => setStyleFilter(null)}
+            style={{ background: 'none', border: 'none', color: 'var(--amber-soft)',
+              fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 700,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: 0 }}
+          >
+            ← {STYLE_LABELS[styleFilter] ?? styleFilter}
+          </button>
+        ) : (
+          <h1>Beers</h1>
+        )}
+        <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+          {isStyleGrid
+            ? `${styleCards.length} styles`
+            : `${visible.length}${isSearchMode && visible.length === 100 ? '+' : ''}`}
+        </span>
       </div>
 
-      {/* Search */}
       <input
         type="search"
         placeholder="Search beer or brewery..."
         value={search}
-        onChange={e => setSearch(e.target.value)}
+        onChange={e => { setSearch(e.target.value); if (e.target.value) setStyleFilter(null) }}
         style={{ marginBottom: 12 }}
       />
 
-      {/* Style filter */}
-      <div className="pill-group" style={{ flexWrap: 'wrap', marginBottom: 8 }}>
-        <button
-          className={`pill ${!styleFilter ? 'selected' : ''}`}
-          onClick={() => setStyleFilter(null)}
-        >All styles</button>
-        {styles.map(s => (
-          <button
-            key={s}
-            className={`pill ${styleFilter === s ? 'selected' : ''}`}
-            onClick={() => setStyleFilter(f => f === s ? null : s)}
-          >{STYLE_LABELS[s] ?? s}</button>
-        ))}
-      </div>
+      {/* Style pills — search mode only */}
+      {isSearchMode && (
+        <div className="pill-group" style={{ flexWrap: 'wrap', marginBottom: 8 }}>
+          <button className={`pill ${!styleFilter ? 'selected' : ''}`} onClick={() => setStyleFilter(null)}>
+            All styles
+          </button>
+          {styleList.map(s => (
+            <button key={s} className={`pill ${styleFilter === s ? 'selected' : ''}`}
+              onClick={() => setStyleFilter(f => f === s ? null : s)}>
+              {STYLE_LABELS[s] ?? s}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Score band filter */}
-      <div className="pill-group" style={{ marginBottom: 16 }}>
-        {SCORE_BANDS.map((band, i) => (
-          <button
-            key={band.label}
-            className={`pill ${scoreBandIdx === i ? 'selected' : ''}`}
-            onClick={() => setScoreBandIdx(i)}
-          >{band.label}</button>
-        ))}
-      </div>
+      {/* Score band — drill-down and search only */}
+      {(isDrillDown || isSearchMode) && (
+        <div className="pill-group" style={{ marginBottom: 16 }}>
+          {SCORE_BANDS.map((b, i) => (
+            <button key={b.label} className={`pill ${scoreBandIdx === i ? 'selected' : ''}`}
+              onClick={() => setScoreBandIdx(i)}>{b.label}</button>
+          ))}
+        </div>
+      )}
 
       {loading && <div className="loading-bar" />}
 
-      {!loading && visible.length === 0 && (
+      {/* Style card grid */}
+      {isStyleGrid && !loading && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, paddingBottom: 80 }}>
+          {styleCards.map(sc => (
+            <button
+              key={sc.key}
+              onClick={() => { setStyleFilter(sc.key); setScoreBandIdx(0) }}
+              style={{ background: 'var(--fog)', border: '1px solid var(--fog)',
+                borderRadius: 'var(--radius)', padding: '14px 12px', textAlign: 'left',
+                cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6 }}
+            >
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.0rem', color: 'var(--white)' }}>
+                {sc.label}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                {sc.count} beer{sc.count !== 1 ? 's' : ''}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--amber-soft)', overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 }}>
+                  {sc.topBeer?.name}
+                </div>
+                <div className={`score-badge ${sc.avgScore >= 7.5 ? 'high' : sc.avgScore >= 5 ? 'mid' : 'low'}`}>
+                  {sc.avgScore.toFixed(1)}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Beer list — drill-down and search */}
+      {(isDrillDown || isSearchMode) && !loading && visible.length === 0 && (
         <div className="empty-state"><p>No beers match these filters.</p></div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 80 }}>
-        {visible.map((b, i) => (
-          <div key={b.id} className="feed-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.2rem',
-                color: i < 3 ? 'var(--amber)' : 'var(--muted)',
-                width: 26, flexShrink: 0,
-              }}>{i + 1}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.0rem' }}>{b.name}</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-                  {b.brewery}{b.abv ? ` · ${b.abv}%` : ''}
+      {(isDrillDown || isSearchMode) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 80 }}>
+          {visible.map((b, i) => (
+            <div key={b.id} className="feed-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem',
+                  color: i < 3 ? 'var(--amber)' : 'var(--muted)', width: 26, flexShrink: 0 }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.0rem' }}>{b.name}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                    {b.brewery}{b.abv ? ` · ${b.abv}%` : ''}
+                  </div>
+                  {isSearchMode && b.style_category && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--amber-soft)', marginTop: 2 }}>
+                      {STYLE_LABELS[b.style_category] ?? b.style_category}
+                    </div>
+                  )}
                 </div>
-                {b.style_category && (
-                  <div style={{ fontSize: '0.78rem', color: 'var(--amber-soft)', marginTop: 2 }}>
-                    {STYLE_LABELS[b.style_category] ?? b.style_category}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className={`score-badge ${b.avg_score >= 7.5 ? 'high' : b.avg_score >= 5 ? 'mid' : 'low'}`}>
+                      {parseFloat(b.avg_score).toFixed(1)}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>
+                      {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
+                    </div>
                   </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div className={`score-badge ${b.avg_score >= 7.5 ? 'high' : b.avg_score >= 5 ? 'mid' : 'low'}`}>
-                    {parseFloat(b.avg_score).toFixed(1)}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>
-                    {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
-                  </div>
+                  <button onClick={() => setEditing(b)}
+                    style={{ background: 'none', border: 'none', color: 'var(--muted)',
+                      cursor: 'pointer', fontSize: '0.85rem', padding: '4px', lineHeight: 1 }}
+                    title="Edit beer">✎</button>
                 </div>
-                <button
-                  onClick={() => setEditing(b)}
-                  style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.85rem', padding: '4px', lineHeight: 1 }}
-                  title="Edit beer"
-                >✎</button>
               </div>
+              {b.seek_again_count > 0 && (
+                <div style={{ marginTop: 4 }}>
+                  <span className="tag seek-again">{b.seek_again_count} would seek again</span>
+                </div>
+              )}
             </div>
-            {b.seek_again_count > 0 && (
-              <div style={{ marginTop: 4 }}>
-                <span className="tag seek-again">{b.seek_again_count} would seek again</span>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {editing && (
         <EditBeerModal

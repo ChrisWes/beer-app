@@ -20,6 +20,9 @@ export const STYLE_CATEGORIES = [
   { value: 'belgian',        label: 'Belgian' },
   { value: 'amber_red',      label: 'Amber / Red' },
   { value: 'barleywine',     label: 'Barleywine' },
+  { value: 'bitter',         label: 'Bitter' },
+  { value: 'mild',           label: 'Mild' },
+  { value: 'cider',          label: 'Cider' },
   { value: 'speciality',     label: 'Speciality' },
   { value: 'other',          label: 'Other' },
 ]

@@ -7,6 +7,7 @@ const STYLE_LABELS = {
   stout_porter: 'Stout/Porter', imperial_stout: 'Imperial Stout',
   sour_wild: 'Sour/Wild', wheat: 'Wheat', belgian: 'Belgian',
   amber_red: 'Amber/Red', barleywine: 'Barleywine',
+  bitter: 'Bitter', mild: 'Mild', cider: 'Cider',
   speciality: 'Speciality', other: 'Other',
 }
 

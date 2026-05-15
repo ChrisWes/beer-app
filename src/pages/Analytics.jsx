@@ -239,12 +239,16 @@ function BeersTab({ ratings }) {
 // ── Pub leaderboard ───────────────────────────────────────────
 
 function PubsTab({ venues }) {
+  const frequent = [...venues]
+    .filter(v => v.visit_count > 1)
+    .sort((a, b) => b.visit_count - a.visit_count)
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {venues.length === 0 && (
-        <div className="empty-state"><p>No pubs rated yet.</p></div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 80 }}>
+      {frequent.length === 0 && (
+        <div className="empty-state"><p>No pubs visited more than once yet.</p></div>
       )}
-      {venues.map((v, i) => (
+      {frequent.map((v, i) => (
         <div key={v.id} className="feed-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{
@@ -260,19 +264,20 @@ function PubsTab({ venues }) {
               </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div className={`score-badge ${v.avg_score >= 7.5 ? 'high' : v.avg_score >= 5 ? 'mid' : 'low'}`}>
-                {parseFloat(v.avg_score).toFixed(1)}
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--amber)' }}>
+                {v.visit_count}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>
-                {v.unique_visitors} visitor{v.unique_visitors !== 1 ? 's' : ''}
+              <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                visit{v.visit_count !== 1 ? 's' : ''}
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {v.has_cask && <span className="tag">🍺 Cask</span>}
-            {v.has_craft_keg && <span className="tag">🥂 Craft keg</span>}
-            {v.price_rating && <span className="tag">{v.price_rating}</span>}
-          </div>
+          {v.avg_score && (
+            <div style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: 4 }}>
+              avg score <span className={`score-badge ${v.avg_score >= 7.5 ? 'high' : v.avg_score >= 5 ? 'mid' : 'low'}`} style={{ fontSize: '0.78rem', padding: '1px 6px' }}>{parseFloat(v.avg_score).toFixed(1)}</span>
+              {v.unique_visitors > 1 && ` · ${v.unique_visitors} of us`}
+            </div>
+          )}
         </div>
       ))}
     </div>

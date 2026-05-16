@@ -1,0 +1,11 @@
+name = "rounds-untappd-sync"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+
+[triggers]
+crons = ["0 6 * * *"]
+
+[vars]
+SUPABASE_URL = "https://lkdvdnrnqugauzwqkaox.supabase.co"
+# SUPABASE_SERVICE_ROLE_KEY is stored as a Cloudflare secret — never commit it.
+# Run once after deploying: npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY

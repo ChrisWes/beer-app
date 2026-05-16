@@ -93,6 +93,9 @@ export default function Admin() {
   const [users, setUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState('')
   const [untappdUsername, setUntappdUsername] = useState('')
+  const [autoUntappdUsername, setAutoUntappdUsername] = useState('')
+  const [savingAutoUsername, setSavingAutoUsername] = useState(false)
+  const [savedAutoUsername, setSavedAutoUsername] = useState(false)
   const [scraping, setScraping] = useState(false)
   const [scraped, setScraped] = useState(null)
   const [importing, setImporting] = useState(false)
@@ -113,6 +116,23 @@ export default function Admin() {
       setUsers(data ?? [])
     })
   }, [])
+
+  useEffect(() => {
+    if (!selectedUser) { setAutoUntappdUsername(''); return }
+    supabase.from('profiles').select('untappd_username').eq('id', selectedUser).single()
+      .then(({ data }) => setAutoUntappdUsername(data?.untappd_username ?? ''))
+  }, [selectedUser])
+
+  async function saveAutoUntappdUsername() {
+    if (!selectedUser) return
+    setSavingAutoUsername(true)
+    await supabase.from('profiles')
+      .update({ untappd_username: autoUntappdUsername.trim() || null })
+      .eq('id', selectedUser)
+    setSavingAutoUsername(false)
+    setSavedAutoUsername(true)
+    setTimeout(() => setSavedAutoUsername(false), 2000)
+  }
 
   function addLog(msg) {
     setLog(l => [...l, `${new Date().toLocaleTimeString()} — ${msg}`])
@@ -527,6 +547,50 @@ export default function Admin() {
         New users are created when they first sign in via magic link.
         Send them an invite, they sign in, then come back here to import their history.
       </p>
+
+      {/* Divider */}
+      <div className="divider" style={{ margin: '32px 0' }} />
+
+      {/* Auto-import configuration */}
+      <h2 style={{ marginBottom: 8 }}>Auto-import</h2>
+      <p style={{ color: 'var(--muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+        Set an Untappd username per user to enable the daily auto-import worker.
+        New check-ins will be pulled automatically each morning.
+      </p>
+
+      <div className="form-stack">
+        <div className="form-field">
+          <label>Configure for which user?</label>
+          <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}>
+            <option value="">— select a user —</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.display_name}</option>
+            ))}
+          </select>
+        </div>
+
+        {selectedUser && (
+          <div className="form-field">
+            <label>Untappd username (leave blank to disable)</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={autoUntappdUsername}
+                onChange={e => setAutoUntappdUsername(e.target.value)}
+                placeholder="e.g. beerchris"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={saveAutoUntappdUsername}
+                disabled={savingAutoUsername}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {savedAutoUsername ? '✓ Saved' : savingAutoUsername ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Divider */}
       <div className="divider" style={{ margin: '32px 0' }} />

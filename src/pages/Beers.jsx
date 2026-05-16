@@ -30,6 +30,7 @@ export default function Beers() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState(null)
   const [viewingLogs, setViewingLogs] = useState(null)
+  const [extraBeers, setExtraBeers] = useState([])
 
   useEffect(() => {
     async function fetchAll() {
@@ -85,6 +86,25 @@ export default function Beers() {
 
   const q            = search.trim().toLowerCase()
   const isSearchMode = q.length > 0
+
+  // When searching, also query the beers table directly so zero-rating beers are found
+  useEffect(() => {
+    if (q.length < 2) { setExtraBeers([]); return }
+    const timer = setTimeout(async () => {
+      const { data } = await supabase
+        .from('beers')
+        .select('id, name, brewery, style_category, abv')
+        .or(`name.ilike.%${q}%,brewery.ilike.%${q}%`)
+        .limit(50)
+      const ratedIds = new Set(beers.map(b => b.id))
+      setExtraBeers(
+        (data ?? [])
+          .filter(b => !ratedIds.has(b.id))
+          .map(b => ({ ...b, avg_score: null, rating_count: 0, seek_again_count: 0 }))
+      )
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [q, beers])
   const isDrillDown  = !isSearchMode && styleFilter !== null
   const isStyleGrid  = !isSearchMode && styleFilter === null
 
@@ -92,13 +112,17 @@ export default function Beers() {
   const visible = useMemo(() => {
     if (!q && !styleFilter) return []
     let list = beers
-    if (q) list = list.filter(b =>
-      b.name.toLowerCase().includes(q) || b.brewery.toLowerCase().includes(q))
+    if (q) {
+      list = list.filter(b =>
+        b.name.toLowerCase().includes(q) || b.brewery.toLowerCase().includes(q))
+      // Append zero-rating beers from direct beers table search
+      list = [...list, ...extraBeers]
+    }
     if (styleFilter) list = list.filter(b =>
       styleFilter === '__none__' ? !b.style_category : b.style_category === styleFilter)
     list = list.filter(band.test)
     return q ? list.slice(0, 100) : list
-  }, [beers, q, styleFilter, scoreBandIdx, band])
+  }, [beers, extraBeers, q, styleFilter, scoreBandIdx, band])
 
   const styleList = useMemo(() =>
     [...new Set(beers.map(b => b.style_category).filter(Boolean))].sort()
@@ -210,15 +234,23 @@ export default function Beers() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                   <div style={{ textAlign: 'right' }}>
-                    <div className={`score-badge ${b.avg_score >= 7.5 ? 'high' : b.avg_score >= 5 ? 'mid' : 'low'}`}>
-                      {parseFloat(b.avg_score).toFixed(1)}
-                    </div>
-                    <button
-                      onClick={() => setViewingLogs(b)}
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                        fontSize: '0.75rem', color: 'var(--amber-soft)', marginTop: 4, display: 'block' }}>
-                      {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
-                    </button>
+                    {b.avg_score != null ? (
+                      <div className={`score-badge ${b.avg_score >= 7.5 ? 'high' : b.avg_score >= 5 ? 'mid' : 'low'}`}>
+                        {parseFloat(b.avg_score).toFixed(1)}
+                      </div>
+                    ) : (
+                      <div className="score-badge" style={{ background: 'var(--fog)', color: 'var(--muted)' }}>—</div>
+                    )}
+                    {b.rating_count > 0 ? (
+                      <button
+                        onClick={() => setViewingLogs(b)}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                          fontSize: '0.75rem', color: 'var(--amber-soft)', marginTop: 4, display: 'block' }}>
+                        {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
+                      </button>
+                    ) : (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>0 logs</div>
+                    )}
                   </div>
                   <button onClick={() => setEditing(b)}
                     style={{ background: 'none', border: 'none', color: 'var(--muted)',

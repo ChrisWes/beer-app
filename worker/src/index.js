@@ -10,12 +10,21 @@ export default {
       })
     }
 
-    // GET /debug/USERNAME — returns raw Untappd HTML snippet for diagnosis
+    // GET /debug/USERNAME — returns the beer list section of Untappd HTML for diagnosis
     if (path.startsWith('/debug/')) {
       const username = path.slice(7)
       const html = await fetchUntappdHtml(username)
-      // Return first 5000 chars so we can see the structure without overwhelming the browser
-      return new Response(html.slice(0, 5000), { headers: { 'Content-Type': 'text/plain' } })
+      // Find where the beer list starts and return 6000 chars from there
+      const markers = ['beer-list', 'beer-item', 'data-bid', 'checkin-item', 'js-checkin']
+      let start = -1
+      for (const m of markers) {
+        const idx = html.indexOf(m)
+        if (idx !== -1 && (start === -1 || idx < start)) start = idx
+      }
+      const snippet = start === -1
+        ? `[no beer list markers found in ${html.length} chars]\n\n` + html.slice(0, 3000)
+        : html.slice(Math.max(0, start - 200), start + 6000)
+      return new Response(snippet, { headers: { 'Content-Type': 'text/plain' } })
     }
 
     return new Response('rounds-untappd-sync ok')

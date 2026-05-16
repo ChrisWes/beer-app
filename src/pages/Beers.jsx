@@ -29,6 +29,7 @@ export default function Beers() {
   const [scoreBandIdx, setScoreBandIdx] = useState(0)
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState(null)
+  const [viewingLogs, setViewingLogs] = useState(null)
 
   useEffect(() => {
     async function fetchAll() {
@@ -212,9 +213,12 @@ export default function Beers() {
                     <div className={`score-badge ${b.avg_score >= 7.5 ? 'high' : b.avg_score >= 5 ? 'mid' : 'low'}`}>
                       {parseFloat(b.avg_score).toFixed(1)}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>
+                    <button
+                      onClick={() => setViewingLogs(b)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                        fontSize: '0.75rem', color: 'var(--amber-soft)', marginTop: 4, display: 'block' }}>
                       {b.rating_count} log{b.rating_count !== 1 ? 's' : ''}
-                    </div>
+                    </button>
                   </div>
                   <button onClick={() => setEditing(b)}
                     style={{ background: 'none', border: 'none', color: 'var(--muted)',
@@ -232,6 +236,10 @@ export default function Beers() {
         </div>
       )}
 
+      {viewingLogs && (
+        <BeerLogsModal beer={viewingLogs} onClose={() => setViewingLogs(null)} />
+      )}
+
       {editing && (
         <EditBeerModal
           beer={editing}
@@ -242,6 +250,71 @@ export default function Beers() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+function BeerLogsModal({ beer, onClose }) {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase
+      .from('ratings')
+      .select('score, drank_at, note, would_seek_again, profiles(display_name)')
+      .eq('beer_id', beer.id)
+      .order('drank_at', { ascending: false })
+      .then(({ data }) => {
+        setLogs(data ?? [])
+        setLoading(false)
+      })
+  }, [beer.id])
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-handle" />
+        <h2 className="modal-title">{beer.name}</h2>
+        <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 16 }}>
+          {beer.brewery} · {beer.rating_count} log{beer.rating_count !== 1 ? 's' : ''} · avg {parseFloat(beer.avg_score).toFixed(1)}
+        </div>
+
+        {loading && <div className="loading-bar" />}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+          {logs.map((log, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12,
+              padding: '10px 0', borderBottom: '1px solid var(--fog)' }}>
+              <div className={`score-badge ${log.score >= 7.5 ? 'high' : log.score >= 5 ? 'mid' : 'low'}`}
+                style={{ flexShrink: 0 }}>
+                {parseFloat(log.score).toFixed(1)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  {log.profiles?.display_name ?? '—'}
+                  {log.would_seek_again && (
+                    <span className="tag seek-again" style={{ marginLeft: 8, fontSize: '0.7rem' }}>seek again</span>
+                  )}
+                </div>
+                {log.drank_at && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                    {new Date(log.drank_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                )}
+                {log.note && (
+                  <div style={{ fontSize: '0.82rem', color: 'var(--white)', marginTop: 4, fontStyle: 'italic' }}>
+                    "{log.note}"
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button className="btn btn-ghost" style={{ marginTop: 16, width: '100%' }} onClick={onClose}>
+          Close
+        </button>
+      </div>
     </div>
   )
 }

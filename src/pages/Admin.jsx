@@ -111,6 +111,14 @@ export default function Admin() {
   const [csvResult, setCsvResult] = useState(null)
   const [csvError, setCsvError] = useState(null)
 
+  // Repair missing ratings
+  const [repairCheckins, setRepairCheckins] = useState(null)
+  const [repairScanning, setRepairScanning] = useState(false)
+  const [repairMissing, setRepairMissing] = useState(null)
+  const [repairImporting, setRepairImporting] = useState(false)
+  const [repairResult, setRepairResult] = useState(null)
+  const [repairError, setRepairError] = useState(null)
+
   useEffect(() => {
     supabase.from('profiles').select('id, display_name').then(({ data }) => {
       setUsers(data ?? [])
@@ -133,6 +141,91 @@ export default function Admin() {
     setSavingAutoUsername(false)
     setSavedAutoUsername(true)
     setTimeout(() => setSavedAutoUsername(false), 2000)
+  }
+
+  function handleRepairFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setRepairMissing(null)
+    setRepairResult(null)
+    setRepairError(null)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        if (!data.checkins || !Array.isArray(data.checkins)) throw new Error('Invalid format')
+        setRepairCheckins(data.checkins)
+      } catch {
+        setRepairError('Could not parse file — use the same JSON from the console snippet.')
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  async function scanMissingRatings() {
+    if (!repairCheckins || !selectedUser) return
+    setRepairScanning(true)
+    setRepairMissing(null)
+    setRepairError(null)
+
+    // Fetch all beers for matching
+    const PAGE = 1000
+    let allBeers = [], from = 0
+    while (true) {
+      const { data } = await supabase.from('beers').select('id, name, brewery').range(from, from + PAGE - 1)
+      if (!data?.length) break
+      allBeers = allBeers.concat(data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+
+    // Match each check-in to a beer
+    const matches = repairCheckins.flatMap(c => {
+      const beer = findBestMatch(c, allBeers)
+      return beer ? [{ checkin: c, beer }] : []
+    })
+
+    if (matches.length === 0) {
+      setRepairError('No check-ins could be matched to beers in the database.')
+      setRepairScanning(false)
+      return
+    }
+
+    // Batch check which of those beers already have a rating for this user
+    const beerIds = [...new Set(matches.map(m => m.beer.id))]
+    const { data: existing } = await supabase
+      .from('ratings')
+      .select('beer_id')
+      .eq('user_id', selectedUser)
+      .in('beer_id', beerIds)
+
+    const ratedIds = new Set((existing ?? []).map(r => r.beer_id))
+    const missing = matches.filter(m => !ratedIds.has(m.beer.id))
+
+    setRepairMissing(missing)
+    setRepairScanning(false)
+  }
+
+  async function importMissingRatings() {
+    if (!repairMissing?.length || !selectedUser) return
+    setRepairImporting(true)
+    setRepairResult(null)
+
+    const rows = repairMissing.map(({ checkin, beer }) => ({
+      user_id:             selectedUser,
+      beer_id:             beer.id,
+      score:               checkin.score ?? null,
+      drank_at:            checkin.drank_at ?? null,
+      note:                checkin.note ?? null,
+      imported_from:       'untappd',
+      untappd_checkin_id:  checkin.untappd_checkin_id ?? null,
+    }))
+
+    const { error } = await supabase.from('ratings').insert(rows)
+    setRepairImporting(false)
+    if (error) { setRepairError(error.message); return }
+    setRepairResult(rows.length)
+    setRepairMissing(null)
   }
 
   function addLog(msg) {
@@ -523,6 +616,90 @@ export default function Admin() {
             <div style={{ fontWeight: 600, color: 'var(--amber-soft)', marginBottom: 4 }}>Import complete</div>
             <div style={{ fontSize: '0.9rem', color: 'var(--amber-soft)' }}>
               {csvResult.ratings_created} ratings · {csvResult.beers_created} new beers · {csvResult.skipped} skipped
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="divider" style={{ margin: '32px 0' }} />
+
+      {/* Repair missing ratings */}
+      <h2 style={{ marginBottom: 8 }}>Repair missing ratings</h2>
+      <p style={{ color: 'var(--muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+        Upload an Untappd JSON file to find check-ins where the beer was created but no rating was recorded, then add the missing ratings.
+      </p>
+
+      <div className="form-stack">
+        <div className="form-field">
+          <label>Repair for which user?</label>
+          <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}>
+            <option value="">— select a user —</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.display_name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-field">
+          <label>Upload Untappd JSON</label>
+          <input type="file" accept=".json" onChange={handleRepairFile} style={{ padding: '8px 0' }} />
+        </div>
+
+        {repairCheckins && !repairMissing && (
+          <button
+            className="btn btn-secondary"
+            onClick={scanMissingRatings}
+            disabled={repairScanning || !selectedUser}
+          >
+            {repairScanning ? 'Scanning...' : `Scan ${repairCheckins.length} check-ins for missing ratings`}
+          </button>
+        )}
+
+        {repairError && (
+          <div style={{ color: 'var(--red, #c0392b)', fontSize: '0.85rem' }}>{repairError}</div>
+        )}
+
+        {repairMissing && (
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>
+              {repairMissing.length === 0
+                ? 'No missing ratings found — all check-ins already have a rating.'
+                : `${repairMissing.length} check-in${repairMissing.length !== 1 ? 's' : ''} missing a rating`}
+            </div>
+            {repairMissing.length > 0 && (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', fontSize: '0.82rem', marginBottom: 12 }}>
+                  {repairMissing.map(({ checkin, beer }, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8 }}>
+                      <span style={{ color: 'var(--amber)', flexShrink: 0, width: 40 }}>
+                        {checkin.score != null ? `${checkin.score}/10` : '—'}
+                      </span>
+                      <span style={{ flex: 1 }}>{beer.name} — {beer.brewery}</span>
+                      <span style={{ color: 'var(--muted)', flexShrink: 0 }}>
+                        {checkin.drank_at ? new Date(checkin.drank_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : 'no date'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                  onClick={importMissingRatings}
+                  disabled={repairImporting}
+                >
+                  {repairImporting ? 'Adding ratings...' : `Add ${repairMissing.length} missing rating${repairMissing.length !== 1 ? 's' : ''}`}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {repairResult != null && (
+          <div className="card" style={{ padding: 16, background: 'rgba(212,132,30,0.12)', borderColor: 'var(--amber)' }}>
+            <div style={{ fontWeight: 600, color: 'var(--amber-soft)', marginBottom: 4 }}>Repair complete</div>
+            <div style={{ fontSize: '0.9rem', color: 'var(--amber-soft)' }}>
+              {repairResult} rating{repairResult !== 1 ? 's' : ''} added.
             </div>
           </div>
         )}

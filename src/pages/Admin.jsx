@@ -221,6 +221,13 @@ export default function Admin() {
       skipped        += data.skipped         ?? 0
     }
 
+    // Tag the newly created ratings — the RPC hardcodes imported_from='untappd',
+    // so fix it up for any rating this user has with no date (all from this CSV batch)
+    await supabase.from('ratings')
+      .update({ imported_from: 'csv' })
+      .eq('user_id', selectedUser)
+      .is('drank_at', null)
+
     setCsvProgress(null)
     setCsvImporting(false)
     setCsvResult({ beers_created: beersCreated, ratings_created: ratingsCreated, skipped })

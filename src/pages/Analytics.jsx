@@ -42,20 +42,163 @@ export default function Analytics() {
         <h1>Stats</h1>
       </div>
 
-      <div className="pill-group" style={{ marginBottom: 20 }}>
-        {['group', 'beers', 'pubs', 'people'].map(t => (
+      <div className="pill-group" style={{ marginBottom: 20, flexWrap: 'wrap' }}>
+        {['2026', 'group', 'beers', 'pubs', 'people'].map(t => (
           <button key={t} className={`pill ${tab === t ? 'selected' : ''}`} onClick={() => setTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === '2026' ? '2026' : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
       {loading && <div className="loading-bar" />}
 
-      {!loading && tab === 'group'   && <GroupTab ratings={allRatings} profiles={profiles} />}
-      {!loading && tab === 'beers'   && <BeersTab ratings={allRatings} />}
-      {!loading && tab === 'pubs'    && <PubsTab venues={venues} />}
-      {!loading && tab === 'people'  && <PeopleTab profiles={profiles} ratings={allRatings} />}
+      {!loading && (() => {
+        const ratings2026 = allRatings.filter(r =>
+          r.drank_at && new Date(r.drank_at).getFullYear() === 2026
+        )
+        return (
+          <>
+            {tab === '2026'   && <Tab2026 ratings={ratings2026} />}
+            {tab === 'group'  && <GroupTab ratings={allRatings} profiles={profiles} />}
+            {tab === 'beers'  && <BeersTab ratings={allRatings} />}
+            {tab === 'pubs'   && <PubsTab venues={venues} />}
+            {tab === 'people' && <PeopleTab profiles={profiles} ratings={allRatings} />}
+          </>
+        )
+      })()}
+    </div>
+  )
+}
+
+// ── 2026 year tab ─────────────────────────────────────────────
+
+function Tab2026({ ratings }) {
+  if (ratings.length === 0) {
+    return <div className="empty-state"><p>No beers logged in 2026 yet.</p></div>
+  }
+
+  // A · Beers logged per user
+  const byUser = {}
+  for (const r of ratings) {
+    byUser[r.display_name] = (byUser[r.display_name] || 0) + 1
+  }
+  const userBoard = Object.entries(byUser).sort(([,a],[,b]) => b - a)
+
+  // B · Most visited pubs (from venue_name on rating rows)
+  const byVenue = {}
+  for (const r of ratings) {
+    if (!r.venue_name) continue
+    byVenue[r.venue_name] = (byVenue[r.venue_name] || 0) + 1
+  }
+  const venueBoard = Object.entries(byVenue)
+    .filter(([name]) => name !== 'Untappd at Home')
+    .sort(([,a],[,b]) => b - a)
+    .slice(0, 10)
+
+  // C · Most logged beers
+  const byBeer = {}
+  for (const r of ratings) {
+    if (!r.beer_name) continue
+    const key = `${r.beer_name}||${r.brewery}`
+    if (!byBeer[key]) byBeer[key] = { beer_name: r.beer_name, brewery: r.brewery, count: 0 }
+    byBeer[key].count++
+  }
+  const beerBoard = Object.values(byBeer).sort((a, b) => b.count - a.count).slice(0, 10)
+
+  // D · Top beer per category (avg score, ≥2 logs)
+  const beerMap = {}
+  for (const r of ratings) {
+    if (!r.beer_name || !r.style_category) continue
+    const key = `${r.beer_name}||${r.brewery}`
+    if (!beerMap[key]) beerMap[key] = { beer_name: r.beer_name, brewery: r.brewery, style_category: r.style_category, scores: [] }
+    beerMap[key].scores.push(parseFloat(r.score))
+  }
+  const styleCounts = {}, styleMap = {}
+  for (const beer of Object.values(beerMap)) {
+    const cat = beer.style_category
+    const avg = beer.scores.reduce((s, v) => s + v, 0) / beer.scores.length
+    styleCounts[cat] = (styleCounts[cat] || 0) + beer.scores.length
+    if (beer.scores.length >= 2 && (!styleMap[cat] || avg > styleMap[cat].avg)) {
+      styleMap[cat] = { ...beer, avg, count: beer.scores.length }
+    }
+  }
+  const styleWinners = Object.entries(styleMap)
+    .sort(([a],[b]) => (styleCounts[b] || 0) - (styleCounts[a] || 0))
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 80 }}>
+
+      {/* A · Beers logged leaderboard */}
+      <div className="card" style={{ padding: 16 }}>
+        <h3 style={{ marginBottom: 14 }}>Beers logged in 2026</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {userBoard.map(([name, count], i) => (
+            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontFamily: 'var(--font-display)', color: i < 3 ? 'var(--amber)' : 'var(--muted)', width: 24 }}>{i + 1}</span>
+              <span style={{ flex: 1 }}>{name}</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: 'var(--amber)' }}>{count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* B · Most visited pubs */}
+      {venueBoard.length > 0 && (
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ marginBottom: 14 }}>Most visited pubs</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {venueBoard.map(([name, count], i) => (
+              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: 'var(--font-display)', color: i < 3 ? 'var(--amber)' : 'var(--muted)', width: 24 }}>{i + 1}</span>
+                <span style={{ flex: 1 }}>{name}</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: 'var(--amber)' }}>{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* C · Most logged beers */}
+      <div className="card" style={{ padding: 16 }}>
+        <h3 style={{ marginBottom: 14 }}>Most logged beers</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {beerBoard.map((b, i) => (
+            <div key={`${b.beer_name}||${b.brewery}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontFamily: 'var(--font-display)', color: i < 3 ? 'var(--amber)' : 'var(--muted)', width: 24 }}>{i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem' }}>{b.beer_name}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{b.brewery}</div>
+              </div>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: 'var(--amber)' }}>{b.count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* D · Top beer per category */}
+      {styleWinners.length > 0 && (
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ marginBottom: 14 }}>Best per style</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {styleWinners.map(([style, b]) => (
+              <div key={style} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
+                    {STYLE_LABELS[style] ?? style}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem' }}>{b.beer_name}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    {b.brewery} · {b.count} log{b.count !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <div className={`score-badge ${b.avg >= 7.5 ? 'high' : b.avg >= 5 ? 'mid' : 'low'}`}>
+                  {b.avg % 1 === 0 ? b.avg : b.avg.toFixed(1)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

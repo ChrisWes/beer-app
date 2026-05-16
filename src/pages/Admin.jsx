@@ -154,7 +154,7 @@ export default function Admin() {
       try {
         const data = JSON.parse(ev.target.result)
         if (!data.checkins || !Array.isArray(data.checkins)) throw new Error('Invalid format')
-        setRepairCheckins(data.checkins)
+        setRepairCheckins(sanitizeCheckins(data.checkins))
       } catch {
         setRepairError('Could not parse file — use the same JSON from the console snippet.')
       }
@@ -256,6 +256,19 @@ export default function Admin() {
     setScraping(false)
   }
 
+  // Untappd shows recent check-ins as "18 hours ago" instead of a real date.
+  // Replace any relative string with today's date so the import doesn't break.
+  function sanitizeDrankAt(val) {
+    if (!val) return null
+    if (/ago|just now|hour|minute|second/i.test(val)) return new Date().toISOString()
+    const d = new Date(val)
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+  }
+
+  function sanitizeCheckins(checkins) {
+    return checkins.map(c => ({ ...c, drank_at: sanitizeDrankAt(c.drank_at) }))
+  }
+
   function handleJsonUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -267,6 +280,7 @@ export default function Admin() {
       try {
         const data = JSON.parse(ev.target.result)
         if (!data.checkins || !Array.isArray(data.checkins)) throw new Error('Invalid format')
+        data.checkins = sanitizeCheckins(data.checkins)
         addLog(`Loaded ${data.checkin_count} check-ins from file for @${data.username}.`)
         setScraped(data)
       } catch {
@@ -810,7 +824,8 @@ const SNIPPET = `// Rounds Untappd export snippet v3
     const score     = ratingRaw && ratingRaw > 0 ? Math.round(ratingRaw * 2 * 10) / 10 : null;
     const note      = item.querySelector('.checkin-comment p')?.textContent?.trim() ?? null;
     const venueName = item.querySelector('.text a[href^="/v/"]')?.textContent?.trim() ?? null;
-    const drankAt   = item.querySelector('a.time')?.textContent?.trim() ?? null;
+    const timeEl    = item.querySelector('a.time');
+    const drankAt   = timeEl?.getAttribute('title') || timeEl?.getAttribute('data-time') || timeEl?.textContent?.trim() || null;
     const checkinId = item.getAttribute('data-checkin-id');
     if (beerName && brewery) {
       checkins.push({ untappd_checkin_id: checkinId, beer_name: beerName, brewery,

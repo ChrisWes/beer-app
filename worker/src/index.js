@@ -1,12 +1,23 @@
 export default {
-  // GET /run — manual trigger for testing without waiting for cron
   async fetch(req, env) {
-    if (new URL(req.url).pathname === '/run') {
+    const path = new URL(req.url).pathname
+
+    // GET /run — manual trigger
+    if (path === '/run') {
       const result = await runImport(env)
       return new Response(JSON.stringify(result, null, 2), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
+
+    // GET /debug/USERNAME — returns raw Untappd HTML snippet for diagnosis
+    if (path.startsWith('/debug/')) {
+      const username = path.slice(7)
+      const html = await fetchUntappdHtml(username)
+      // Return first 5000 chars so we can see the structure without overwhelming the browser
+      return new Response(html.slice(0, 5000), { headers: { 'Content-Type': 'text/plain' } })
+    }
+
     return new Response('rounds-untappd-sync ok')
   },
 
@@ -58,19 +69,52 @@ async function importForUser(env, { id: user_id, untappd_username, last_untappd_
   return { imported: fresh.length, rpc: rpcResult }
 }
 
-// Delegate scraping to the existing worker which already handles Untappd HTML parsing
-const SCRAPER_URL = 'https://lively-surf-0e39.chris-weston.workers.dev/scrape/untappd'
+async function fetchUntappdHtml(username) {
+  const res = await fetch(`https://untappd.com/user/${username}/beers`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-GB,en;q=0.5',
+    },
+  })
+  if (!res.ok) throw new Error(`Untappd ${res.status} for ${username}`)
+  return res.text()
+}
 
 async function scrapeUntappd(username) {
-  const res = await fetch(SCRAPER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username }),
-  })
-  if (!res.ok) throw new Error(`Scraper returned ${res.status} for ${username}`)
-  const data = await res.json()
-  if (data.error) throw new Error(data.error)
-  return data.checkins ?? []
+  const html = await fetchUntappdHtml(username)
+  return parseCheckins(html)
+}
+
+function parseCheckins(html) {
+  const checkins = []
+  const blockRe = /class="beer-item[\s\S]*?(?=class="beer-item|<\/ul>|$)/g
+  const blocks = html.match(blockRe) ?? []
+
+  for (const b of blocks) {
+    const checkin_id = b.match(/data-checkin-id="(\d+)"/)?.[1] ?? null
+    const beer_name  = b.match(/class="beer-name"[^>]*>([^<]+)</)?.[1]?.trim() ?? null
+    const brewery    = b.match(/class="brewery"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
+    const rating_raw = b.match(/data-rating="([\d.]+)"/)?.[1]
+    const venue_name = b.match(/<a\s+href="\/v\/[^"]*"[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
+    const datetime   = b.match(/datetime="([^"]+)"/)?.[1] ?? null
+
+    if (!beer_name || !brewery) continue
+
+    checkins.push({
+      untappd_checkin_id: checkin_id,
+      beer_name,
+      brewery,
+      style:          null,
+      abv:            null,
+      style_category: null,
+      score:          rating_raw ? Math.round(parseFloat(rating_raw) * 2 * 10) / 10 : null,
+      note:           null,
+      drank_at:       datetime ? new Date(datetime).toISOString() : null,
+      venue_name,
+    })
+  }
+  return checkins
 }
 
 function sbHeaders(env) {

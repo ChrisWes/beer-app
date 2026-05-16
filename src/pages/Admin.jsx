@@ -212,13 +212,12 @@ export default function Admin() {
     setRepairResult(null)
 
     const rows = repairMissing.map(({ checkin, beer }) => ({
-      user_id:             selectedUser,
-      beer_id:             beer.id,
-      score:               checkin.score ?? null,
-      drank_at:            checkin.drank_at ?? null,
-      note:                checkin.note ?? null,
-      imported_from:       'untappd',
-      untappd_checkin_id:  checkin.untappd_checkin_id ?? null,
+      user_id:       selectedUser,
+      beer_id:       beer.id,
+      score:         checkin.score ?? null,
+      drank_at:      checkin.drank_at ?? null,
+      note:          checkin.note ?? null,
+      imported_from: 'untappd',
     }))
 
     const { error } = await supabase.from('ratings').insert(rows)

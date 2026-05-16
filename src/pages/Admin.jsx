@@ -126,9 +126,10 @@ export default function Admin() {
   async function saveAutoUntappdUsername() {
     if (!selectedUser) return
     setSavingAutoUsername(true)
-    await supabase.from('profiles')
-      .update({ untappd_username: autoUntappdUsername.trim() || null })
-      .eq('id', selectedUser)
+    await supabase.rpc('set_untappd_username', {
+      target_user_id: selectedUser,
+      username: autoUntappdUsername.trim() || null,
+    })
     setSavingAutoUsername(false)
     setSavedAutoUsername(true)
     setTimeout(() => setSavedAutoUsername(false), 2000)

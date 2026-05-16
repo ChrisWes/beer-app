@@ -43,9 +43,9 @@ export default function Analytics() {
       </div>
 
       <div className="pill-group" style={{ marginBottom: 20, flexWrap: 'wrap' }}>
-        {['2026', 'group', 'beers', 'pubs', 'people'].map(t => (
+        {['2026', '2025', 'group', 'beers', 'pubs', 'people'].map(t => (
           <button key={t} className={`pill ${tab === t ? 'selected' : ''}`} onClick={() => setTab(t)}>
-            {t === '2026' ? '2026' : t.charAt(0).toUpperCase() + t.slice(1)}
+            {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
@@ -53,12 +53,13 @@ export default function Analytics() {
       {loading && <div className="loading-bar" />}
 
       {!loading && (() => {
-        const ratings2026 = allRatings.filter(r =>
-          r.drank_at && new Date(r.drank_at).getFullYear() === 2026
+        const forYear = yr => allRatings.filter(r =>
+          r.drank_at && new Date(r.drank_at).getFullYear() === yr
         )
         return (
           <>
-            {tab === '2026'   && <Tab2026 ratings={ratings2026} />}
+            {tab === '2026'   && <YearTab year={2026} ratings={forYear(2026)} />}
+            {tab === '2025'   && <YearTab year={2025} ratings={forYear(2025)} />}
             {tab === 'group'  && <GroupTab ratings={allRatings} profiles={profiles} />}
             {tab === 'beers'  && <BeersTab ratings={allRatings} />}
             {tab === 'pubs'   && <PubsTab venues={venues} />}
@@ -70,12 +71,23 @@ export default function Analytics() {
   )
 }
 
-// ── 2026 year tab ─────────────────────────────────────────────
+// ── Year tab (2026, 2025, …) ───────────────────────────────────
 
-function Tab2026({ ratings }) {
+function YearTab({ year, ratings }) {
   if (ratings.length === 0) {
-    return <div className="empty-state"><p>No beers logged in 2026 yet.</p></div>
+    return <div className="empty-state"><p>No beers logged in {year} yet.</p></div>
   }
+
+  const total = ratings.length
+
+  // What we drank — style breakdown
+  const drinkCounts = {}
+  for (const r of ratings) {
+    const s = r.style_category || 'other'
+    drinkCounts[s] = (drinkCounts[s] || 0) + 1
+  }
+  const sortedStyles = Object.entries(drinkCounts).sort(([,a],[,b]) => b - a)
+  const maxStyle = sortedStyles[0]?.[1] ?? 1
 
   // A · Beers logged per user
   const byUser = {}
@@ -130,7 +142,7 @@ function Tab2026({ ratings }) {
 
       {/* A · Beers logged leaderboard */}
       <div className="card" style={{ padding: 16 }}>
-        <h3 style={{ marginBottom: 14 }}>Beers logged in 2026</h3>
+        <h3 style={{ marginBottom: 14 }}>Beers logged in {year}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {userBoard.map(([name, count], i) => (
             <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -145,7 +157,7 @@ function Tab2026({ ratings }) {
       {/* B · Most visited pubs */}
       {venueBoard.length > 0 && (
         <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ marginBottom: 14 }}>Most visited pubs</h3>
+          <h3 style={{ marginBottom: 14 }}>Most visited pubs in {year}</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {venueBoard.map(([name, count], i) => (
               <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -157,6 +169,29 @@ function Tab2026({ ratings }) {
           </div>
         </div>
       )}
+
+      {/* What we drank — style breakdown chart */}
+      <div className="card" style={{ padding: 16 }}>
+        <h3 style={{ marginBottom: 14 }}>What we drank</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {sortedStyles.map(([style, count]) => (
+            <div key={style}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: 3 }}>
+                <span>{STYLE_LABELS[style] ?? style}</span>
+                <span style={{ color: 'var(--muted)' }}>{count} ({Math.round(count / total * 100)}%)</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--fog)', borderRadius: 3 }}>
+                <div style={{
+                  height: '100%',
+                  width: `${(count / maxStyle) * 100}%`,
+                  background: 'var(--amber)',
+                  borderRadius: 3,
+                }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* C · Most logged beers */}
       <div className="card" style={{ padding: 16 }}>

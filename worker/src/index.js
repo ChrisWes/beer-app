@@ -97,16 +97,25 @@ async function scrapeUntappd(username) {
 
 function parseCheckins(html) {
   const checkins = []
-  const blockRe = /class="beer-item[\s\S]*?(?=class="beer-item|<\/ul>|$)/g
-  const blocks = html.match(blockRe) ?? []
+  // Split on each beer-item div — actual structure confirmed from live HTML
+  const blocks = html.split('<div class="beer-item"').slice(1)
 
   for (const b of blocks) {
-    const checkin_id = b.match(/data-checkin-id="(\d+)"/)?.[1] ?? null
-    const beer_name  = b.match(/class="beer-name"[^>]*>([^<]+)</)?.[1]?.trim() ?? null
-    const brewery    = b.match(/class="brewery"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
+    // Beer name: <p class="name"><a ...>Name</a></p>
+    const beer_name = b.match(/class="name"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
+    // Brewery: <p class="brewery"><a ...>Brewery</a></p>
+    const brewery   = b.match(/class="brewery"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
+    // Style: <p class="style">Style text</p>
+    const style     = b.match(/class="style"[^>]*>([^<]+)<\/p>/)?.[1]?.trim() ?? null
+    // ABV: <p class="abv">4.2% ABV</p>
+    const abv_raw   = b.match(/class="abv"[^>]*>\s*([\d.]+)%/)?.[1]
+    // Their rating — first data-rating value in the block (second is global rating)
     const rating_raw = b.match(/data-rating="([\d.]+)"/)?.[1]
-    const venue_name = b.match(/<a\s+href="\/v\/[^"]*"[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
-    const datetime   = b.match(/datetime="([^"]+)"/)?.[1] ?? null
+    // Dates — two <abbr class="date-time"> elements: First then Recent
+    const dates     = [...b.matchAll(/class="date-time">([^<]+)<\/abbr>/g)].map(m => m[1])
+    const drank_at  = dates[1] ?? dates[0] ?? null   // prefer Recent over First
+    // Checkin ID from the checkin URL
+    const checkin_id = b.match(/\/checkin\/(\d+)\//)?.[1] ?? null
 
     if (!beer_name || !brewery) continue
 
@@ -114,16 +123,43 @@ function parseCheckins(html) {
       untappd_checkin_id: checkin_id,
       beer_name,
       brewery,
-      style:          null,
-      abv:            null,
-      style_category: null,
+      style,
+      abv:            abv_raw ? parseFloat(abv_raw) : null,
+      style_category: mapStyleCategory(style),
       score:          rating_raw ? Math.round(parseFloat(rating_raw) * 2 * 10) / 10 : null,
       note:           null,
-      drank_at:       datetime ? new Date(datetime).toISOString() : null,
-      venue_name,
+      drank_at:       drank_at ? new Date(drank_at).toISOString() : null,
+      venue_name:     null,
     })
   }
   return checkins
+}
+
+function mapStyleCategory(style) {
+  const s = (style || '').toLowerCase()
+  if (!s) return null
+  if (s.includes('imperial stout') || s.includes('imperial porter') || s.includes('russian imperial')) return 'imperial_stout'
+  if (s.includes('stout') || s.includes('porter')) return 'stout_porter'
+  if (s.includes('milkshake ipa') || s.includes('pastry ipa')) return 'milkshake_ipa'
+  if (s.includes('session ipa')) return 'session_ipa'
+  if (s.includes('west coast ipa') || s.includes('wc ipa')) return 'west_coast_ipa'
+  if (s.includes('double ipa') || s.includes('dipa') || s.includes('double india pale')) return 'dipa'
+  if (s.includes('new england') || s.includes('neipa')) return 'neipa'
+  if (s.includes('hazy') || s.includes('juicy')) return 'hazy_ipa'
+  if (s.includes('ipa') || s.includes('india pale')) return 'ipa'
+  if (s.includes('mild')) return 'mild'
+  if (s.includes('bitter') || s.includes('best bitter')) return 'bitter'
+  if (s.includes('pale ale') || s.includes('pale')) return 'pale_ale'
+  if (s.includes('cider') || s.includes('cyder')) return 'cider'
+  if (s.includes('dunkel') || s.includes('dark lager')) return 'dunkel'
+  if (s.includes('lager') || s.includes('pilsner') || s.includes('pilsener') || s.includes('helles') || s.includes('kolsch') || s.includes('kölsch') || s.includes('pils')) return 'lager'
+  if (s.includes('saison') || s.includes('farmhouse')) return 'saison'
+  if (s.includes('sour') || s.includes('lambic') || s.includes('gueuze') || s.includes('gose') || s.includes('berliner') || s.includes('wild ale') || s.includes('kriek')) return 'sour_wild'
+  if (s.includes('wheat') || s.includes('hefeweizen') || s.includes('witbier') || s.includes('weizen') || s.includes('wit')) return 'wheat'
+  if (s.includes('belgian') || s.includes('tripel') || s.includes('dubbel') || s.includes('quadrupel') || s.includes(' quad')) return 'belgian'
+  if (s.includes('amber') || s.includes('red ale')) return 'amber_red'
+  if (s.includes('barleywine') || s.includes('barley wine')) return 'barleywine'
+  return null
 }
 
 function sbHeaders(env) {

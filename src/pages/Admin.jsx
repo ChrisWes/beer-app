@@ -253,6 +253,35 @@ export default function Admin() {
     setClassifyLoading(false)
   }
 
+  function exportUnclassified() {
+    if (!unclassified?.length) return
+    const json = JSON.stringify(
+      unclassified.map(b => ({ id: b.id, name: b.name, brewery: b.brewery })),
+      null, 2
+    )
+    const blob = new Blob([json], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'unclassified-beers.json'
+    a.click()
+  }
+
+  function handleClassifyImport(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        setClassifyResults(data.filter(r => r.style_category))
+        setUnclassified(null)
+      } catch {
+        // ignore parse errors
+      }
+    }
+    reader.readAsText(file)
+  }
+
   function classifyBeers() {
     if (!unclassified?.length) return
     // Apply mapStyleCategory locally using the existing style text — no web request needed
@@ -785,7 +814,7 @@ export default function Admin() {
       {/* Auto-classify */}
       <h2 style={{ marginBottom: 8 }}>Auto-classify beers</h2>
       <p style={{ color: 'var(--muted)', marginBottom: 16, fontSize: '0.9rem' }}>
-        Looks up uncategorised beers on Untappd to fill in style and ABV automatically.
+        Classify from existing style text, or export the list and run the Playwright script to look up styles on Untappd using a real browser.
       </p>
 
       <div className="form-stack">
@@ -797,6 +826,15 @@ export default function Admin() {
           {classifyLoading ? 'Loading...' : 'Load uncategorised beers'}
         </button>
 
+        {!classifyResults && (
+          <div className="form-field">
+            <label style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Import Playwright results
+            </label>
+            <input type="file" accept=".json" onChange={handleClassifyImport} style={{ padding: '8px 0' }} />
+          </div>
+        )}
+
         {unclassified && !classifyResults && (
           <div className="card" style={{ padding: 16 }}>
             <div style={{ fontWeight: 600, marginBottom: 12 }}>
@@ -805,13 +843,14 @@ export default function Admin() {
                 : `${unclassified.length} beer${unclassified.length !== 1 ? 's' : ''} with no style category`}
             </div>
             {unclassified.length > 0 && (
-              <button
-                className="btn btn-primary"
-                style={{ width: '100%' }}
-                onClick={classifyBeers}
-              >
-                Classify from style text
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button className="btn btn-secondary" onClick={classifyBeers}>
+                  Classify from style text
+                </button>
+                <button className="btn btn-secondary" onClick={exportUnclassified}>
+                  Export for Playwright script
+                </button>
+              </div>
             )}
           </div>
         )}

@@ -33,6 +33,7 @@ export default function PublicPage() {
   const [scoreBandIdx, setScoreBandIdx] = useState(0)
   const [search, setSearch] = useState('')
   const [extraBeers, setExtraBeers] = useState([])
+  const [tastingMap, setTastingMap] = useState({})
 
   useEffect(() => {
     async function fetchAll() {
@@ -83,7 +84,22 @@ export default function PublicPage() {
       setUniqueBreweryCount(Object.keys(breweryMap).length)
       setLoading(false)
     }
+
+    async function fetchTastingMap() {
+      const { data } = await supabase
+        .from('tasting_entries')
+        .select('beer_id, is_winner, tastings(year)')
+        .not('beer_id', 'is', null)
+      const map = {}
+      for (const e of data ?? []) {
+        if (!map[e.beer_id]) map[e.beer_id] = []
+        map[e.beer_id].push({ year: e.tastings?.year, is_winner: e.is_winner })
+      }
+      setTastingMap(map)
+    }
+
     fetchAll()
+    fetchTastingMap()
   }, [])
 
   const styleCards = useMemo(() => {
@@ -314,6 +330,16 @@ export default function PublicPage() {
                   {isSearchMode && b.style_category && (
                     <div style={{ fontSize: '0.78rem', color: 'var(--amber-soft)', marginTop: 2 }}>
                       {STYLE_LABELS[b.style_category] ?? b.style_category}
+                    </div>
+                  )}
+                  {tastingMap[b.id] && (
+                    <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {tastingMap[b.id].map(t => (
+                        <span key={t.year} className="tag seek-again"
+                          style={t.is_winner ? {} : { background: 'var(--fog)', color: 'var(--muted)' }}>
+                          {t.is_winner ? `🏆 ${t.year}` : `Tasting ${t.year}`}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>

@@ -31,6 +31,7 @@ export default function Beers() {
   const [editing, setEditing] = useState(null)
   const [viewingLogs, setViewingLogs] = useState(null)
   const [extraBeers, setExtraBeers] = useState([])
+  const [tastingMap, setTastingMap] = useState({})
 
   useEffect(() => {
     async function fetchAll() {
@@ -66,7 +67,22 @@ export default function Beers() {
       setBeers(aggregated)
       setLoading(false)
     }
+
+    async function fetchTastingMap() {
+      const { data } = await supabase
+        .from('tasting_entries')
+        .select('beer_id, is_winner, tastings(year)')
+        .not('beer_id', 'is', null)
+      const map = {}
+      for (const e of data ?? []) {
+        if (!map[e.beer_id]) map[e.beer_id] = []
+        map[e.beer_id].push({ year: e.tastings?.year, is_winner: e.is_winner })
+      }
+      setTastingMap(map)
+    }
+
     fetchAll()
+    fetchTastingMap()
   }, [])
 
   // Style cards — computed once after beers load
@@ -258,9 +274,17 @@ export default function Beers() {
                     title="Edit beer">✎</button>
                 </div>
               </div>
-              {b.seek_again_count > 0 && (
-                <div style={{ marginTop: 4 }}>
-                  <span className="tag seek-again">{b.seek_again_count} would seek again</span>
+              {(b.seek_again_count > 0 || tastingMap[b.id]) && (
+                <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {b.seek_again_count > 0 && (
+                    <span className="tag seek-again">{b.seek_again_count} would seek again</span>
+                  )}
+                  {tastingMap[b.id]?.map(t => (
+                    <span key={t.year} className="tag seek-again"
+                      style={t.is_winner ? {} : { background: 'var(--fog)', color: 'var(--muted)' }}>
+                      {t.is_winner ? `🏆 ${t.year}` : `Tasting ${t.year}`}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>

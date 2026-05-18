@@ -10,6 +10,7 @@ import Venues from './pages/Venues'
 import Beers from './pages/Beers'
 import Admin from './pages/Admin'
 import PublicPage from './pages/PublicPage'
+import TastingsPage from './pages/TastingsPage'
 import Nav from './components/Nav'
 import './index.css'
 
@@ -62,6 +63,7 @@ function AppRoutes() {
   const location = useLocation()
 
   if (location.pathname === '/public') return <PublicPage />
+  if (location.pathname === '/tastings') return <TastingsPage />
 
   if (loading) {
     return (

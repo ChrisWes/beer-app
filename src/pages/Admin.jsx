@@ -20,6 +20,7 @@ function mapStyleCategory(style, beerName = '') {
   if (s.includes('ipa') || s.includes('india pale') || s.includes('india ipa')) return 'ipa'
   if (s.includes('mild')) return 'mild'
   if (s.includes('bitter') || s.includes('best bitter') || s.includes('epa')) return 'bitter'
+  if (s.includes('golden ale') || s.includes('golden') || s.includes('blonde')) return 'golden_ale'
   if (s.includes('pale ale') || s.includes('pale')) return 'pale_ale'
   if (s.includes('cider') || s.includes('cyder')) return 'cider'
   if (s.includes('dunkel') || s.includes('dark lager')) return 'dunkel'
@@ -29,6 +30,9 @@ function mapStyleCategory(style, beerName = '') {
   if (s.includes('wheat') || s.includes('hefeweizen') || s.includes('witbier') || s.includes('weizen') || s.includes('wit')) return 'wheat'
   if (s.includes('belgian') || s.includes('tripel') || s.includes('dubbel') || s.includes('quadrupel') || s.includes(' quad')) return 'belgian'
   if (s.includes('amber') || s.includes('red ale') || s.includes('red ipa')) return 'amber_red'
+  if (s.includes('winter')) return 'winter_warmer'
+  if (s.includes('dark ale')) return 'dark_ale'
+  if (s.includes('strong ale') && s.includes('english')) return 'barleywine'
   if (s.includes('barleywine') || s.includes('barley wine')) return 'barleywine'
   return null
 }
@@ -273,7 +277,7 @@ export default function Admin() {
     reader.onload = ev => {
       try {
         const data = JSON.parse(ev.target.result)
-        setClassifyResults(data.filter(r => r.style_category))
+        setClassifyResults(data.filter(r => r.found && (r.style_category || r.style)))
         setUnclassified(null)
       } catch {
         // ignore parse errors
@@ -304,9 +308,9 @@ export default function Admin() {
       await Promise.all(
         classifyResults.slice(i, i + CHUNK).map(r =>
           supabase.from('beers').update({
-            ...(r.style ? { style: r.style } : {}),
-            ...(r.abv   ? { abv:   r.abv   } : {}),
-            style_category: r.style_category,
+            ...(r.style          ? { style:          r.style          } : {}),
+            ...(r.abv            ? { abv:            r.abv            } : {}),
+            ...(r.style_category ? { style_category: r.style_category } : {}),
           }).eq('id', r.id)
         )
       )
@@ -858,10 +862,10 @@ export default function Admin() {
         {classifyResults && (
           <div className="card" style={{ padding: 16 }}>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
-              {classifyResults.length} beer{classifyResults.length !== 1 ? 's' : ''} can be classified
+              {classifyResults.length} beer{classifyResults.length !== 1 ? 's' : ''} to update
               {unclassified && classifyResults.length < unclassified.length && (
                 <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.85rem' }}>
-                  {' '}· {unclassified.length - classifyResults.length} have no style text to match from
+                  {' '}· {unclassified.length - classifyResults.length} not found on Untappd
                 </span>
               )}
             </div>
@@ -870,7 +874,9 @@ export default function Admin() {
                 <div style={{ maxHeight: 400, overflowY: 'auto', margin: '12px 0',
                   display: 'flex', flexDirection: 'column' }}>
                   {classifyResults.map(r => {
-                    const categoryLabel = STYLE_CATEGORIES.find(s => s.value === r.style_category)?.label ?? r.style_category
+                    const categoryLabel = r.style_category
+                      ? (STYLE_CATEGORIES.find(s => s.value === r.style_category)?.label ?? r.style_category)
+                      : null
                     return (
                       <div key={r.id} style={{ display: 'flex', gap: 10, fontSize: '0.82rem',
                         padding: '10px 0', borderBottom: '1px solid var(--fog)', alignItems: 'flex-start' }}>
@@ -884,7 +890,10 @@ export default function Admin() {
                           )}
                         </div>
                         <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                          <div style={{ color: 'var(--amber-soft)', fontWeight: 600 }}>{categoryLabel}</div>
+                          {categoryLabel
+                            ? <div style={{ color: 'var(--amber-soft)', fontWeight: 600 }}>{categoryLabel}</div>
+                            : <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>style text only</div>
+                          }
                           {r.abv && (
                             <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{r.abv}%</div>
                           )}

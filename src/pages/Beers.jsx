@@ -3,12 +3,12 @@ import { supabase } from '../lib/supabase'
 import { STYLE_CATEGORIES } from '../lib/constants'
 
 const STYLE_LABELS = {
-  pale_ale: 'Pale Ale', ipa: 'IPA', neipa: 'NEIPA', hazy_ipa: 'Hazy (Hewzi) IPA', dipa: 'DIPA',
+  pale_ale: 'Pale Ale', golden_ale: 'Blonde / Golden Ale', ipa: 'IPA', neipa: 'NEIPA', hazy_ipa: 'Hazy (Hewzi) IPA', dipa: 'DIPA',
   west_coast_ipa: 'West Coast IPA', session_ipa: 'Session IPA', milkshake_ipa: 'Milkshake IPA',
   lager: 'Lager', dunkel: 'Dunkel', saison: 'Saison',
   stout_porter: 'Stout/Porter', imperial_stout: 'Imperial Stout',
   sour_wild: 'Sour/Wild', wheat: 'Wheat', belgian: 'Belgian',
-  amber_red: 'Amber/Red', barleywine: 'Barleywine',
+  amber_red: 'Amber/Red', dark_ale: 'Dark Ale', winter_warmer: 'Winter Warmer', barleywine: 'Barleywine',
   bitter: 'Bitter', mild: 'Mild', cider: 'Cider',
   speciality: 'Speciality', other: 'Other',
 }

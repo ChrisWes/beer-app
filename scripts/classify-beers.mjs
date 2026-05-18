@@ -86,6 +86,7 @@ function mapStyleCategory(style, beerName = '') {
   if (s.includes('ipa') || s.includes('india pale') || s.includes('india ipa')) return 'ipa'
   if (s.includes('mild')) return 'mild'
   if (s.includes('bitter') || s.includes('best bitter') || s.includes('epa')) return 'bitter'
+  if (s.includes('golden ale') || s.includes('golden') || s.includes('blonde')) return 'golden_ale'
   if (s.includes('pale ale') || s.includes('pale')) return 'pale_ale'
   if (s.includes('cider') || s.includes('cyder')) return 'cider'
   if (s.includes('dunkel') || s.includes('dark lager')) return 'dunkel'
@@ -95,6 +96,9 @@ function mapStyleCategory(style, beerName = '') {
   if (s.includes('wheat') || s.includes('hefeweizen') || s.includes('witbier') || s.includes('weizen') || s.includes('wit')) return 'wheat'
   if (s.includes('belgian') || s.includes('tripel') || s.includes('dubbel') || s.includes('quadrupel') || s.includes(' quad')) return 'belgian'
   if (s.includes('amber') || s.includes('red ale') || s.includes('red ipa')) return 'amber_red'
+  if (s.includes('winter')) return 'winter_warmer'
+  if (s.includes('dark ale')) return 'dark_ale'
+  if (s.includes('strong ale') && s.includes('english')) return 'barleywine'
   if (s.includes('barleywine') || s.includes('barley wine')) return 'barleywine'
   return null
 }

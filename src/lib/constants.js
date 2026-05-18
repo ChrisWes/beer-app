@@ -11,6 +11,7 @@ export const BEER_COLOURS = [
 
 export const STYLE_CATEGORIES = [
   { value: 'pale_ale',       label: 'Pale Ale' },
+  { value: 'golden_ale',     label: 'Blonde / Golden Ale' },
   { value: 'ipa',            label: 'IPA' },
   { value: 'neipa',          label: 'NEIPA' },
   { value: 'hazy_ipa',       label: 'Hazy (Hewzi) IPA' },
@@ -27,6 +28,8 @@ export const STYLE_CATEGORIES = [
   { value: 'wheat',          label: 'Wheat / Hefeweizen' },
   { value: 'belgian',        label: 'Belgian' },
   { value: 'amber_red',      label: 'Amber / Red' },
+  { value: 'dark_ale',       label: 'Dark Ale' },
+  { value: 'winter_warmer',  label: 'Winter Warmer' },
   { value: 'barleywine',     label: 'Barleywine' },
   { value: 'bitter',         label: 'Bitter' },
   { value: 'mild',           label: 'Mild' },

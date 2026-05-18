@@ -11,6 +11,7 @@ import Beers from './pages/Beers'
 import Admin from './pages/Admin'
 import PublicPage from './pages/PublicPage'
 import TastingsPage from './pages/TastingsPage'
+import TasteAdmin from './pages/TasteAdmin'
 import Nav from './components/Nav'
 import './index.css'
 
@@ -84,7 +85,8 @@ function AppRoutes() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/venues"    element={<Venues />} />
         <Route path="/beers"     element={<Beers />} />
-        <Route path="/admin"     element={<Admin />} />
+        <Route path="/admin"       element={<Admin />} />
+        <Route path="/taste-admin" element={<TasteAdmin />} />
         <Route path="*"          element={<Navigate to="/" />} />
       </Routes>
       <Nav />

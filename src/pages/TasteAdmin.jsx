@@ -115,7 +115,7 @@ export default function TasteAdmin() {
           <div className="form-field">
             <label>Venue</label>
             <input value={newTasting.venue} onChange={e => setNewTasting(t => ({ ...t, venue: e.target.value }))}
-              placeholder="e.g. The Crown" />
+              placeholder="e.g. St Paul's Church" />
           </div>
         </div>
         <div className="form-field">

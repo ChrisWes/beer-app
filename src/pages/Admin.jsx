@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { STYLE_CATEGORIES } from '../lib/constants'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -260,6 +261,10 @@ export default function Admin() {
       return style_category ? [{ ...b, style_category }] : []
     })
     setClassifyResults(results)
+  }
+
+  function removeClassification(id) {
+    setClassifyResults(rs => rs.filter(r => r.id !== id))
   }
 
   async function applyClassifications() {
@@ -823,23 +828,37 @@ export default function Admin() {
             </div>
             {classifyResults.length > 0 && (
               <>
-                <div style={{ maxHeight: 300, overflowY: 'auto', margin: '12px 0',
-                  display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {classifyResults.map(r => (
-                    <div key={r.id} style={{ display: 'flex', gap: 8, fontSize: '0.82rem',
-                      padding: '6px 0', borderBottom: '1px solid var(--fog)', alignItems: 'baseline' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600 }}>{r.name}</div>
-                        <div style={{ color: 'var(--muted)' }}>{r.brewery}</div>
-                      </div>
-                      <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                        <div style={{ color: 'var(--amber-soft)' }}>{r.style ?? '—'}</div>
-                        <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>
-                          {r.style_category}{r.abv ? ` · ${r.abv}%` : ''}
+                <div style={{ maxHeight: 400, overflowY: 'auto', margin: '12px 0',
+                  display: 'flex', flexDirection: 'column' }}>
+                  {classifyResults.map(r => {
+                    const categoryLabel = STYLE_CATEGORIES.find(s => s.value === r.style_category)?.label ?? r.style_category
+                    return (
+                      <div key={r.id} style={{ display: 'flex', gap: 10, fontSize: '0.82rem',
+                        padding: '10px 0', borderBottom: '1px solid var(--fog)', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600 }}>{r.name}</div>
+                          <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{r.brewery}</div>
+                          {r.style && (
+                            <div style={{ color: 'var(--muted)', fontSize: '0.75rem', fontStyle: 'italic', marginTop: 2 }}>
+                              "{r.style}"
+                            </div>
+                          )}
                         </div>
+                        <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                          <div style={{ color: 'var(--amber-soft)', fontWeight: 600 }}>{categoryLabel}</div>
+                          {r.abv && (
+                            <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{r.abv}%</div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeClassification(r.id)}
+                          style={{ background: 'none', border: 'none', color: 'var(--muted)',
+                            cursor: 'pointer', fontSize: '0.9rem', padding: '0 2px',
+                            lineHeight: 1, flexShrink: 0, alignSelf: 'center' }}
+                          title="Remove from list">✕</button>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <button
                   className="btn btn-primary"

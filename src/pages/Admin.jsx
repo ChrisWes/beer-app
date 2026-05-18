@@ -111,6 +111,14 @@ export default function Admin() {
   const [csvResult, setCsvResult] = useState(null)
   const [csvError, setCsvError] = useState(null)
 
+  // Auto-classify
+  const [unclassified, setUnclassified]       = useState(null)
+  const [classifyLoading, setClassifyLoading] = useState(false)
+  const [classifyProgress, setClassifyProgress] = useState(null)
+  const [classifyResults, setClassifyResults] = useState(null)
+  const [classifyApplying, setClassifyApplying] = useState(false)
+  const [classifyDone, setClassifyDone]       = useState(null)
+
   // Repair missing ratings
   const [repairCheckins, setRepairCheckins] = useState(null)
   const [repairScanning, setRepairScanning] = useState(false)
@@ -223,6 +231,69 @@ export default function Admin() {
     if (error) { setRepairError(error.message); return }
     setRepairResult(rows.length)
     setRepairMissing(null)
+  }
+
+  async function loadUnclassified() {
+    setClassifyLoading(true)
+    setClassifyResults(null)
+    setClassifyDone(null)
+    const PAGE = 1000
+    let all = [], from = 0
+    while (true) {
+      const { data } = await supabase.from('beers')
+        .select('id, name, brewery')
+        .is('style_category', null)
+        .range(from, from + PAGE - 1)
+      if (!data?.length) break
+      all = all.concat(data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    setUnclassified(all)
+    setClassifyLoading(false)
+  }
+
+  async function classifyBeers() {
+    if (!unclassified?.length) return
+    const BATCH = 10
+    const results = []
+    for (let i = 0; i < unclassified.length; i += BATCH) {
+      setClassifyProgress({ done: i, total: unclassified.length })
+      const batch = unclassified.slice(i, i + BATCH)
+      const res = await fetch(`${WORKER_URL}/lookup-style`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ beers: batch }),
+      })
+      const data = await res.json()
+      for (const r of data) {
+        const src = batch.find(b => b.id === r.id)
+        results.push({ ...src, ...r })
+      }
+    }
+    setClassifyProgress(null)
+    setClassifyResults(results.filter(r => r.found && r.style_category))
+  }
+
+  async function applyClassifications() {
+    if (!classifyResults?.length) return
+    setClassifyApplying(true)
+    const CHUNK = 20
+    for (let i = 0; i < classifyResults.length; i += CHUNK) {
+      await Promise.all(
+        classifyResults.slice(i, i + CHUNK).map(r =>
+          supabase.from('beers').update({
+            ...(r.style ? { style: r.style } : {}),
+            ...(r.abv   ? { abv:   r.abv   } : {}),
+            style_category: r.style_category,
+          }).eq('id', r.id)
+        )
+      )
+    }
+    setClassifyApplying(false)
+    setClassifyDone(classifyResults.length)
+    setClassifyResults(null)
+    setUnclassified(null)
   }
 
   function addLog(msg) {
@@ -711,6 +782,99 @@ export default function Admin() {
             <div style={{ fontWeight: 600, color: 'var(--amber-soft)', marginBottom: 4 }}>Repair complete</div>
             <div style={{ fontSize: '0.9rem', color: 'var(--amber-soft)' }}>
               {repairResult} rating{repairResult !== 1 ? 's' : ''} added.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="divider" style={{ margin: '32px 0' }} />
+
+      {/* Auto-classify */}
+      <h2 style={{ marginBottom: 8 }}>Auto-classify beers</h2>
+      <p style={{ color: 'var(--muted)', marginBottom: 16, fontSize: '0.9rem' }}>
+        Looks up uncategorised beers on Untappd to fill in style and ABV automatically.
+      </p>
+
+      <div className="form-stack">
+        <button
+          className="btn btn-secondary"
+          onClick={loadUnclassified}
+          disabled={classifyLoading}
+        >
+          {classifyLoading ? 'Loading...' : 'Load uncategorised beers'}
+        </button>
+
+        {unclassified && !classifyResults && (
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 600, marginBottom: 12 }}>
+              {unclassified.length === 0
+                ? 'All beers are already categorised.'
+                : `${unclassified.length} beer${unclassified.length !== 1 ? 's' : ''} with no style category`}
+            </div>
+            {unclassified.length > 0 && (
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+                onClick={classifyBeers}
+                disabled={!!classifyProgress}
+              >
+                {classifyProgress
+                  ? `Classifying... ${classifyProgress.done} / ${classifyProgress.total}`
+                  : `Classify via Untappd`}
+              </button>
+            )}
+          </div>
+        )}
+
+        {classifyResults && (
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              {classifyResults.length} match{classifyResults.length !== 1 ? 'es' : ''} found
+              {unclassified && classifyResults.length < unclassified.length && (
+                <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.85rem' }}>
+                  {' '}· {unclassified.length - classifyResults.length} had no match on Untappd
+                </span>
+              )}
+            </div>
+            {classifyResults.length > 0 && (
+              <>
+                <div style={{ maxHeight: 300, overflowY: 'auto', margin: '12px 0',
+                  display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {classifyResults.map(r => (
+                    <div key={r.id} style={{ display: 'flex', gap: 8, fontSize: '0.82rem',
+                      padding: '6px 0', borderBottom: '1px solid var(--fog)', alignItems: 'baseline' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{r.name}</div>
+                        <div style={{ color: 'var(--muted)' }}>{r.brewery}</div>
+                      </div>
+                      <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                        <div style={{ color: 'var(--amber-soft)' }}>{r.style ?? '—'}</div>
+                        <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>
+                          {r.style_category}{r.abv ? ` · ${r.abv}%` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                  onClick={applyClassifications}
+                  disabled={classifyApplying}
+                >
+                  {classifyApplying ? 'Applying...' : `Apply ${classifyResults.length} classification${classifyResults.length !== 1 ? 's' : ''}`}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {classifyDone != null && (
+          <div className="card" style={{ padding: 16, background: 'rgba(212,132,30,0.12)', borderColor: 'var(--amber)' }}>
+            <div style={{ fontWeight: 600, color: 'var(--amber-soft)', marginBottom: 4 }}>Done</div>
+            <div style={{ fontSize: '0.9rem', color: 'var(--amber-soft)' }}>
+              {classifyDone} beer{classifyDone !== 1 ? 's' : ''} updated.
             </div>
           </div>
         )}

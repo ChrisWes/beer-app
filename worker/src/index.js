@@ -1,16 +1,42 @@
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
 export default {
   async fetch(req, env) {
     const path = new URL(req.url).pathname
+
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { headers: CORS })
+    }
 
     // GET /run — manual trigger
     if (path === '/run') {
       const result = await runImport(env)
       return new Response(JSON.stringify(result, null, 2), {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...CORS },
       })
     }
 
-    return new Response('rounds-untappd-sync ok')
+    // POST /lookup-style — look up style/ABV for a batch of beers on Untappd
+    if (path === '/lookup-style' && req.method === 'POST') {
+      const { beers } = await req.json()
+      const results = []
+      for (const b of beers) {
+        try {
+          results.push(await lookupStyle(b))
+        } catch (e) {
+          results.push({ id: b.id, found: false, error: e.message })
+        }
+      }
+      return new Response(JSON.stringify(results), {
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      })
+    }
+
+    return new Response('rounds-untappd-sync ok', { headers: CORS })
   },
 
   async scheduled(_event, env) {
@@ -116,6 +142,32 @@ function parseCheckins(html) {
     })
   }
   return checkins
+}
+
+async function lookupStyle({ id, name, brewery }) {
+  const q = encodeURIComponent(`${name} ${brewery}`)
+  const res = await fetch(`https://untappd.com/search?q=${q}&type=beer`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-GB,en;q=0.5',
+    },
+  })
+  if (!res.ok) throw new Error(`Untappd ${res.status}`)
+  const html = await res.text()
+  return parseSearchResult(id, html)
+}
+
+function parseSearchResult(id, html) {
+  const block = html.split('<div class="beer-item"')[1]
+  if (!block) return { id, found: false }
+
+  const style   = block.match(/class="style"[^>]*>([^<]+)<\/p>/)?.[1]?.trim() ?? null
+  const abv_raw = block.match(/class="abv"[^>]*>\s*([\d.]+)%/)?.[1]
+  const abv     = abv_raw ? parseFloat(abv_raw) : null
+  const style_category = mapStyleCategory(style)
+
+  return { id, found: true, style, abv, style_category }
 }
 
 function mapStyleCategory(style) {

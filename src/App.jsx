@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
@@ -9,6 +9,7 @@ import Analytics from './pages/Analytics'
 import Venues from './pages/Venues'
 import Beers from './pages/Beers'
 import Admin from './pages/Admin'
+import PublicPage from './pages/PublicPage'
 import Nav from './components/Nav'
 import './index.css'
 
@@ -58,6 +59,9 @@ function SetupProfile() {
 
 function AppRoutes() {
   const { user, profile, loading } = useAuth()
+  const location = useLocation()
+
+  if (location.pathname === '/public') return <PublicPage />
 
   if (loading) {
     return (

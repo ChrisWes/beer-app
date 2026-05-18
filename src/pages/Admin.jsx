@@ -114,7 +114,6 @@ export default function Admin() {
   // Auto-classify
   const [unclassified, setUnclassified]       = useState(null)
   const [classifyLoading, setClassifyLoading] = useState(false)
-  const [classifyProgress, setClassifyProgress] = useState(null)
   const [classifyResults, setClassifyResults] = useState(null)
   const [classifyApplying, setClassifyApplying] = useState(false)
   const [classifyDone, setClassifyDone]       = useState(null)
@@ -241,7 +240,7 @@ export default function Admin() {
     let all = [], from = 0
     while (true) {
       const { data } = await supabase.from('beers')
-        .select('id, name, brewery')
+        .select('id, name, brewery, style')
         .is('style_category', null)
         .range(from, from + PAGE - 1)
       if (!data?.length) break
@@ -253,26 +252,14 @@ export default function Admin() {
     setClassifyLoading(false)
   }
 
-  async function classifyBeers() {
+  function classifyBeers() {
     if (!unclassified?.length) return
-    const BATCH = 10
-    const results = []
-    for (let i = 0; i < unclassified.length; i += BATCH) {
-      setClassifyProgress({ done: i, total: unclassified.length })
-      const batch = unclassified.slice(i, i + BATCH)
-      const res = await fetch(`${WORKER_URL}/lookup-style`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ beers: batch }),
-      })
-      const data = await res.json()
-      for (const r of data) {
-        const src = batch.find(b => b.id === r.id)
-        results.push({ ...src, ...r })
-      }
-    }
-    setClassifyProgress(null)
-    setClassifyResults(results.filter(r => r.found && r.style_category))
+    // Apply mapStyleCategory locally using the existing style text — no web request needed
+    const results = unclassified.flatMap(b => {
+      const style_category = mapStyleCategory(b.style, b.name)
+      return style_category ? [{ ...b, style_category }] : []
+    })
+    setClassifyResults(results)
   }
 
   async function applyClassifications() {
@@ -817,11 +804,8 @@ export default function Admin() {
                 className="btn btn-primary"
                 style={{ width: '100%' }}
                 onClick={classifyBeers}
-                disabled={!!classifyProgress}
               >
-                {classifyProgress
-                  ? `Classifying... ${classifyProgress.done} / ${classifyProgress.total}`
-                  : `Classify via Untappd`}
+                Classify from style text
               </button>
             )}
           </div>
@@ -830,10 +814,10 @@ export default function Admin() {
         {classifyResults && (
           <div className="card" style={{ padding: 16 }}>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
-              {classifyResults.length} match{classifyResults.length !== 1 ? 'es' : ''} found
+              {classifyResults.length} beer{classifyResults.length !== 1 ? 's' : ''} can be classified
               {unclassified && classifyResults.length < unclassified.length && (
                 <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.85rem' }}>
-                  {' '}· {unclassified.length - classifyResults.length} had no match on Untappd
+                  {' '}· {unclassified.length - classifyResults.length} have no style text to match from
                 </span>
               )}
             </div>

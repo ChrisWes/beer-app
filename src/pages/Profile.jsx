@@ -17,7 +17,7 @@ export default function Profile() {
   const [tasteProfile, setTasteProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('history') // 'history' | 'taste'
-  const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('theme') ?? '')
+  const [currentTheme, setCurrentTheme] = useState(() => { const t = localStorage.getItem('theme'); return t === null ? 'grotesk' : t })
 
   function applyTheme(id) {
     document.documentElement.setAttribute('data-theme', id)

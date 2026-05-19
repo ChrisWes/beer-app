@@ -339,7 +339,8 @@ const STYLE_LABELS = {
   lager: 'Lager', dunkel: 'Dunkel', saison: 'Saison',
   stout_porter: 'Stout/Porter', imperial_stout: 'Imperial Stout',
   sour_wild: 'Sour/Wild', wheat: 'Wheat', belgian: 'Belgian',
-  amber_red: 'Amber/Red', barleywine: 'Barleywine',
+  golden_ale: 'Blonde / Golden Ale', amber_red: 'Amber/Red', dark_ale: 'Dark Ale',
+  winter_warmer: 'Winter Warmer', barleywine: 'Barleywine', fruit: 'Fruit',
   bitter: 'Bitter', mild: 'Mild', cider: 'Cider',
   speciality: 'Speciality', other: 'Other',
 }

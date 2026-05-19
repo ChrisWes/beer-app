@@ -258,16 +258,6 @@ function GroupTab({ ratings, profiles }) {
     return acc
   }, {})
 
-  const styleLabels = {
-    pale_ale: 'Pale Ale', ipa: 'IPA', neipa: 'NEIPA',
-    west_coast_ipa: 'West Coast IPA', session_ipa: 'Session IPA', milkshake_ipa: 'Milkshake IPA',
-    lager: 'Lager', dunkel: 'Dunkel', saison: 'Saison',
-    stout_porter: 'Stout/Porter', imperial_stout: 'Imperial Stout',
-    sour_wild: 'Sour/Wild', wheat: 'Wheat', belgian: 'Belgian',
-    amber_red: 'Amber/Red', barleywine: 'Barleywine',
-    bitter: 'Bitter', mild: 'Mild', cider: 'Cider',
-    speciality: 'Speciality', other: 'Other',
-  }
 
   const sortedStyles = Object.entries(styleCounts).sort(([,a],[,b]) => b-a)
   const maxStyle = sortedStyles[0]?.[1] ?? 1
@@ -296,7 +286,7 @@ function GroupTab({ ratings, profiles }) {
           {sortedStyles.map(([style, count]) => (
             <div key={style}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: 3 }}>
-                <span>{styleLabels[style] ?? style}</span>
+                <span>{STYLE_LABELS[style] ?? style}</span>
                 <span style={{ color: 'var(--muted)' }}>{count} ({Math.round(count/total*100)}%)</span>
               </div>
               <div style={{ height: 6, background: 'var(--fog)', borderRadius: 3 }}>

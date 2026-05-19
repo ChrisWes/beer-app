@@ -165,13 +165,7 @@ export default function PublicPage() {
     <div className="container page" style={{ paddingBottom: 60 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-        <h1 style={{ margin: 0 }}>What We've Been Drinking</h1>
-        <a href="/" style={{ fontSize: '0.8rem', color: 'var(--amber-soft)',
-          textDecoration: 'none', whiteSpace: 'nowrap', paddingTop: 6 }}>
-          Sign in →
-        </a>
-      </div>
+      <h1 style={{ marginBottom: 6 }}>What We've Been Drinking</h1>
 
       {loading
         ? <div className="loading-bar" style={{ marginBottom: 28 }} />

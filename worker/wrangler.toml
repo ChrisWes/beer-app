@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2024-09-01"
 
 [triggers]
-crons = ["0 6 * * *"]
+crons = ["50 23 * * *"]
 
 [vars]
 SUPABASE_URL = "https://lkdvdnrnqugauzwqkaox.supabase.co"

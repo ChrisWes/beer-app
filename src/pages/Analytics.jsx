@@ -379,7 +379,7 @@ function BeersTab({ ratings }) {
   }
 
   const styleWinners = Object.entries(styleMap)
-    .sort(([a], [b]) => (styleCounts[b] || 0) - (styleCounts[a] || 0))
+    .sort(([a], [b]) => (STYLE_LABELS[a] ?? a).localeCompare(STYLE_LABELS[b] ?? b))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 80 }}>

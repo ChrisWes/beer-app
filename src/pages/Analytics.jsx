@@ -488,16 +488,23 @@ function PeopleTab({ profiles, ratings }) {
   const { abvChartData, abvUsers } = useMemo(() => {
     const entries = ratings.filter(r => r.abv != null && r.display_name)
     const users = [...new Set(entries.map(r => r.display_name))].sort()
+    const userTotals = {}
+    entries.forEach(r => { userTotals[r.display_name] = (userTotals[r.display_name] || 0) + 1 })
     const buckets = {}
     entries.forEach(r => {
       const bucket = (Math.round(r.abv * 2) / 2).toFixed(1)
       if (!buckets[bucket]) buckets[bucket] = { abv: parseFloat(bucket) }
       buckets[bucket][r.display_name] = (buckets[bucket][r.display_name] || 0) + 1
     })
-    return {
-      abvChartData: Object.values(buckets).sort((a, b) => a.abv - b.abv),
-      abvUsers: users,
-    }
+    const data = Object.values(buckets).sort((a, b) => a.abv - b.abv).map(point => {
+      const norm = { abv: point.abv }
+      users.forEach(name => {
+        if (point[name] != null)
+          norm[name] = Math.round((point[name] / userTotals[name]) * 1000) / 10
+      })
+      return norm
+    })
+    return { abvChartData: data, abvUsers: users }
   }, [ratings])
 
   return (
@@ -526,9 +533,10 @@ function PeopleTab({ profiles, ratings }) {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--fog)" />
               <XAxis dataKey="abv" type="number" domain={['dataMin', 'dataMax']}
                 tickFormatter={v => `${v}%`} stroke="var(--muted)" tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} stroke="var(--muted)" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={v => `${v}%`} stroke="var(--muted)" tick={{ fontSize: 11 }} />
               <Tooltip
                 labelFormatter={v => `${v}% ABV`}
+                formatter={(v, name) => [`${v}% of ${name}'s ratings`, name]}
                 contentStyle={{ background: 'var(--ink-soft)', border: '1px solid var(--fog)',
                   borderRadius: 6, fontSize: '0.82rem' }}
               />

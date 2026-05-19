@@ -45,6 +45,24 @@
   --nav-height: 60px;
 }
 
+/* ── Light & Airy theme ─────────────────────────────────────── */
+[data-theme="light"] {
+  --ink:        #f8f4ee;
+  --ink-soft:   #ede8df;
+  --cream:      #e8e0d2;
+  --cream-dark: #ddd4c2;
+  --fog:        #cdc0ab;
+  --muted:      #7a6855;
+  --white:      #1a1510;
+  --amber:      #c4610a;
+  --amber-soft: #e07820;
+  --gold:       #b85a08;
+  --mahogany:   #9e3d10;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.10);
+  --shadow:     0 4px 16px rgba(0,0,0,0.12);
+  --shadow-lg:  0 8px 40px rgba(0,0,0,0.18);
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

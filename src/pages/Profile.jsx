@@ -5,12 +5,24 @@ import Avatar from '../components/Avatar'
 import FeedCard from '../components/FeedCard'
 import { scoreClass, colourHex, formatDate } from '../lib/constants'
 
+const THEMES = [
+  { id: '',      label: 'The Pub',      bg: '#0e0b07', ring: '#d4841e' },
+  { id: 'light', label: 'Light & Airy', bg: '#f8f4ee', ring: '#c4610a' },
+]
+
 export default function Profile() {
   const { profile, signOut } = useAuth()
   const [ratings, setRatings] = useState([])
   const [tasteProfile, setTasteProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('history') // 'history' | 'taste'
+  const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('theme') ?? '')
+
+  function applyTheme(id) {
+    document.documentElement.setAttribute('data-theme', id)
+    localStorage.setItem('theme', id)
+    setCurrentTheme(id)
+  }
 
   useEffect(() => {
     if (!profile) return
@@ -88,6 +100,21 @@ export default function Profile() {
           </div>
           <div className="stat-label">Imperials</div>
         </div>
+      </div>
+
+      {/* Theme picker */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Theme</span>
+        {THEMES.map(t => (
+          <button key={t.id} onClick={() => applyTheme(t.id)} title={t.label}
+            style={{
+              width: 28, height: 28, borderRadius: '50%', border: 'none',
+              cursor: 'pointer', background: t.bg,
+              boxShadow: currentTheme === t.id
+                ? `0 0 0 2px var(--amber), 0 0 0 4px ${t.ring}`
+                : '0 0 0 1px var(--fog)',
+            }} />
+        ))}
       </div>
 
       {/* Tabs */}

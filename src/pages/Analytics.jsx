@@ -345,11 +345,18 @@ const STYLE_LABELS = {
 }
 
 function BeersTab({ ratings }) {
-  const highestRated = [...ratings].sort((a, b) => parseFloat(b.score) - parseFloat(a.score))[0]
+  const [yearFilter, setYearFilter] = useState('2026')
+
+  const filteredRatings = ratings.filter(r => {
+    if (!r.drank_at) return false
+    const y = new Date(r.drank_at).getFullYear()
+    if (yearFilter === '2024-') return y <= 2024
+    return y === parseInt(yearFilter)
+  })
 
   // Aggregate ratings by beer+brewery to get avg scores per beer
   const beerMap = {}
-  for (const r of ratings) {
+  for (const r of filteredRatings) {
     const cat = r.style_category
     if (!cat || !r.beer_name) continue
     const key = `${r.beer_name}||${r.brewery}`
@@ -376,26 +383,19 @@ function BeersTab({ ratings }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 80 }}>
-
-      {highestRated && (
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-            Highest single rating
-          </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem' }}>
-            {highestRated.beer_name}
-          </div>
-          <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>{highestRated.brewery}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-            <div className="score-badge high">{highestRated.score}</div>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>by {highestRated.display_name}</span>
-          </div>
-        </div>
-      )}
-
       {styleWinners.length > 0 && (
         <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ marginBottom: 14 }}>Best per style</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h3 style={{ margin: 0 }}>Best per style</h3>
+            <div className="pill-group" style={{ gap: 6 }}>
+              {[['2024-', '2024 and before'], ['2025', '2025'], ['2026', '2026']].map(([val, label]) => (
+                <button key={val} className={`pill${yearFilter === val ? ' selected' : ''}`}
+                  onClick={() => setYearFilter(val)} style={{ fontSize: '0.78rem', padding: '4px 10px' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {styleWinners.map(([style, b]) => (
               <div key={style} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -417,8 +417,8 @@ function BeersTab({ ratings }) {
         </div>
       )}
 
-      {ratings.length === 0 && (
-        <div className="empty-state"><p>No beers rated yet.</p></div>
+      {filteredRatings.length === 0 && (
+        <div className="empty-state"><p>No beers rated in this period.</p></div>
       )}
     </div>
   )

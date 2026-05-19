@@ -29,6 +29,12 @@ function mapStyleCategory(style, beerName = '') {
   if (s.includes('sour') || s.includes('lambic') || s.includes('gueuze') || s.includes('gose') || s.includes('berliner') || s.includes('wild ale') || s.includes('kriek')) return 'sour_wild'
   if (s.includes('wheat') || s.includes('hefeweizen') || s.includes('witbier') || s.includes('weizen') || s.includes('wit')) return 'wheat'
   if (s.includes('belgian') || s.includes('tripel') || s.includes('dubbel') || s.includes('quadrupel') || s.includes(' quad')) return 'belgian'
+  if (s.includes('fruit') || s.includes('cherry') || s.includes('kirsch') ||
+      s.includes('raspberry') || s.includes('strawberry') || s.includes('mango') ||
+      s.includes('peach') || s.includes('apricot') || s.includes('plum') ||
+      s.includes('blackberry') || s.includes('blueberry') || s.includes('blackcurrant') ||
+      s.includes('cranberry') || s.includes('passion') || s.includes('gooseberry') ||
+      s.includes('berry')) return 'fruit'
   if (s.includes('amber') || s.includes('red ale') || s.includes('red ipa')) return 'amber_red'
   if (s.includes('winter')) return 'winter_warmer'
   if (s.includes('dark ale')) return 'dark_ale'
@@ -246,7 +252,7 @@ export default function Admin() {
     while (true) {
       const { data } = await supabase.from('beers')
         .select('id, name, brewery, style')
-        .is('style_category', null)
+        .or('style_category.is.null,style_category.eq.other')
         .range(from, from + PAGE - 1)
       if (!data?.length) break
       all = all.concat(data)
@@ -844,7 +850,7 @@ export default function Admin() {
             <div style={{ fontWeight: 600, marginBottom: 12 }}>
               {unclassified.length === 0
                 ? 'All beers are already categorised.'
-                : `${unclassified.length} beer${unclassified.length !== 1 ? 's' : ''} with no style category`}
+                : `${unclassified.length} beer${unclassified.length !== 1 ? 's' : ''} with no style category (including "other")`}
             </div>
             {unclassified.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

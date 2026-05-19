@@ -27,6 +27,7 @@ export const STYLE_CATEGORIES = [
   { value: 'sour_wild',      label: 'Sour / Wild' },
   { value: 'wheat',          label: 'Wheat / Hefeweizen' },
   { value: 'belgian',        label: 'Belgian' },
+  { value: 'fruit',          label: 'Fruit' },
   { value: 'amber_red',      label: 'Amber / Red' },
   { value: 'dark_ale',       label: 'Dark Ale' },
   { value: 'winter_warmer',  label: 'Winter Warmer' },

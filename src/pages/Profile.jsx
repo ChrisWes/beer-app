@@ -6,8 +6,9 @@ import FeedCard from '../components/FeedCard'
 import { scoreClass, colourHex, formatDate } from '../lib/constants'
 
 const THEMES = [
-  { id: '',      label: 'The Pub',      bg: '#0e0b07', ring: '#d4841e' },
-  { id: 'light', label: 'Light & Airy', bg: '#f8f4ee', ring: '#c4610a' },
+  { id: '',        label: 'The Pub',      bg: '#0e0b07', ring: '#d4841e' },
+  { id: 'light',   label: 'Light & Airy', bg: '#f8f4ee', ring: '#c4610a' },
+  { id: 'grotesk', label: 'Workshop',     bg: '#0c0d0f', ring: '#f59e0b' },
 ]
 
 export default function Profile() {

@@ -45,6 +45,25 @@
   --nav-height: 60px;
 }
 
+/* ── Workshop theme (Space Grotesk, geometric dark) ─────────── */
+[data-theme="grotesk"] {
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body:    'Space Grotesk', system-ui, sans-serif;
+  --ink:          #0c0d0f;
+  --ink-soft:     #161820;
+  --cream:        #1e2028;
+  --cream-dark:   #282c38;
+  --fog:          #363b4a;
+  --muted:        #8892a4;
+  --amber:        #f59e0b;
+  --amber-soft:   #fbbf24;
+  --gold:         #fcd34d;
+  --mahogany:     #d97706;
+  --radius:       8px;
+  --radius-sm:    4px;
+  --radius-lg:    14px;
+}
+
 /* ── Light & Airy theme ─────────────────────────────────────── */
 [data-theme="light"] {
   --ink:        #f8f4ee;

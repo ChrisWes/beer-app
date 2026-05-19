@@ -541,7 +541,7 @@ function PeopleTab({ profiles, ratings }) {
                   borderRadius: 6, fontSize: '0.82rem' }}
               />
               {abvUsers.map((name, i) => (
-                <Line key={name} dataKey={name}
+                <Line key={name} dataKey={name} type="monotone"
                   stroke={ABV_COLOURS[i % ABV_COLOURS.length]}
                   strokeWidth={2} dot={false} connectNulls
                   hide={hiddenAbvUsers.has(name)} />

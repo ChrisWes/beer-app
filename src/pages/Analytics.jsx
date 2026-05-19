@@ -1,5 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts'
+
+const ABV_COLOURS = ['#d4841e','#4ea8de','#56c27a','#e06c75','#c678dd','#61afef','#e5c07b','#98c379']
 
 export default function Analytics() {
   const [tab, setTab] = useState('group')
@@ -470,8 +475,74 @@ function PubsTab({ venues }) {
 // ── People comparison ─────────────────────────────────────────
 
 function PeopleTab({ profiles, ratings }) {
+  const [hiddenAbvUsers, setHiddenAbvUsers] = useState(new Set())
+
+  function toggleAbvUser(name) {
+    setHiddenAbvUsers(prev => {
+      const next = new Set(prev)
+      next.has(name) ? next.delete(name) : next.add(name)
+      return next
+    })
+  }
+
+  const { abvChartData, abvUsers } = useMemo(() => {
+    const entries = ratings.filter(r => r.abv != null && r.display_name)
+    const users = [...new Set(entries.map(r => r.display_name))].sort()
+    const buckets = {}
+    entries.forEach(r => {
+      const bucket = (Math.round(r.abv * 2) / 2).toFixed(1)
+      if (!buckets[bucket]) buckets[bucket] = { abv: parseFloat(bucket) }
+      buckets[bucket][r.display_name] = (buckets[bucket][r.display_name] || 0) + 1
+    })
+    return {
+      abvChartData: Object.values(buckets).sort((a, b) => a.abv - b.abv),
+      abvUsers: users,
+    }
+  }, [ratings])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {abvUsers.length > 0 && (
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 12 }}>ABV preference distribution</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {abvUsers.map((name, i) => {
+              const hidden = hiddenAbvUsers.has(name)
+              return (
+                <button key={name} onClick={() => toggleAbvUser(name)} style={{
+                  padding: '4px 12px', borderRadius: 20, fontSize: '0.8rem',
+                  cursor: 'pointer', border: 'none', transition: 'opacity 0.15s',
+                  background: hidden ? 'var(--fog)' : ABV_COLOURS[i % ABV_COLOURS.length],
+                  color: hidden ? 'var(--muted)' : '#fff',
+                  opacity: hidden ? 0.5 : 1,
+                }}>
+                  {name}
+                </button>
+              )
+            })}
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={abvChartData} margin={{ top: 4, right: 16, left: -10, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--fog)" />
+              <XAxis dataKey="abv" type="number" domain={['dataMin', 'dataMax']}
+                tickFormatter={v => `${v}%`} stroke="var(--muted)" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} stroke="var(--muted)" tick={{ fontSize: 11 }} />
+              <Tooltip
+                labelFormatter={v => `${v}% ABV`}
+                contentStyle={{ background: 'var(--ink-soft)', border: '1px solid var(--fog)',
+                  borderRadius: 6, fontSize: '0.82rem' }}
+              />
+              {abvUsers.map((name, i) => (
+                <Line key={name} dataKey={name}
+                  stroke={ABV_COLOURS[i % ABV_COLOURS.length]}
+                  strokeWidth={2} dot={false} connectNulls
+                  hide={hiddenAbvUsers.has(name)} />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {profiles.length === 0 && (
         <div className="empty-state"><p>No profiles yet.</p></div>
       )}

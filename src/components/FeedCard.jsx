@@ -223,6 +223,7 @@ function EditRatingModal({ ratingId, onClose, onSave }) {
       adjuncts:         form.adjuncts ?? [],
       note:             form.note?.trim() || null,
       would_seek_again: form.would_seek_again ?? null,
+      drank_at:         form.drank_at || null,
     }).eq('id', ratingId)
     setSaving(false)
     onSave()
@@ -311,6 +312,16 @@ function EditRatingModal({ ratingId, onClose, onSave }) {
                   onClick={() => toggleAdjunct(a)}>{a}</button>
               ))}
             </div>
+          </div>
+
+          {/* Date */}
+          <div className="form-field">
+            <label>Date logged</label>
+            <input
+              type="date"
+              value={form.drank_at ? form.drank_at.slice(0, 10) : ''}
+              onChange={e => set('drank_at', e.target.value ? e.target.value + 'T12:00:00.000Z' : null)}
+            />
           </div>
 
           {/* Note */}

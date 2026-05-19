@@ -522,11 +522,11 @@ function PeopleTab({ profiles, ratings }) {
             })}
           </div>
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={abvChartData} margin={{ top: 4, right: 16, left: -10, bottom: 4 }}>
+            <LineChart data={abvChartData} layout="vertical" margin={{ top: 4, right: 16, left: 10, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--fog)" />
-              <XAxis dataKey="abv" type="number" domain={['dataMin', 'dataMax']}
+              <YAxis dataKey="abv" type="number" domain={['dataMin', 'dataMax']}
                 tickFormatter={v => `${v}%`} stroke="var(--muted)" tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} stroke="var(--muted)" tick={{ fontSize: 11 }} />
+              <XAxis type="number" allowDecimals={false} stroke="var(--muted)" tick={{ fontSize: 11 }} />
               <Tooltip
                 labelFormatter={v => `${v}% ABV`}
                 contentStyle={{ background: 'var(--ink-soft)', border: '1px solid var(--fog)',

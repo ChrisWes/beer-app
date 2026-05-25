@@ -47,6 +47,14 @@ const PlusIcon = () => (
   </svg>
 )
 
+const JourneyIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="9"/>
+    <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="12" r="1.5" fill="var(--ink)"/>
+  </svg>
+)
+
 export default function Nav() {
   const [logOpen, setLogOpen] = useState(false)
 
@@ -76,6 +84,11 @@ export default function Nav() {
         <NavLink to="/analytics">
           <AnalyticsIcon />
           Stats
+        </NavLink>
+
+        <NavLink to="/robs-journey">
+          <JourneyIcon />
+          Journey
         </NavLink>
 
         <NavLink to="/profile">

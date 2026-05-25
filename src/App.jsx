@@ -9,6 +9,7 @@ import Analytics from './pages/Analytics'
 import Venues from './pages/Venues'
 import Beers from './pages/Beers'
 import Admin from './pages/Admin'
+import RobsJourney from './pages/RobsJourney'
 import PublicPage from './pages/PublicPage'
 import TastingsPage from './pages/TastingsPage'
 import TasteAdmin from './pages/TasteAdmin'
@@ -86,8 +87,9 @@ function AppRoutes() {
         <Route path="/venues"    element={<Venues />} />
         <Route path="/beers"     element={<Beers />} />
         <Route path="/admin"       element={<Admin />} />
-        <Route path="/taste-admin" element={<TasteAdmin />} />
-        <Route path="*"          element={<Navigate to="/" />} />
+        <Route path="/taste-admin"   element={<TasteAdmin />} />
+        <Route path="/robs-journey" element={<RobsJourney />} />
+        <Route path="*"             element={<Navigate to="/" />} />
       </Routes>
       <Nav />
     </>

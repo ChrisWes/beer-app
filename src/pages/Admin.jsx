@@ -70,6 +70,71 @@ function findBestMatch(row, existingBeers) {
   return best
 }
 
+// Proper CSV row splitter — handles quoted fields containing commas
+function splitCsvRow(line, delim = ',') {
+  const result = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+      else inQuotes = !inQuotes
+    } else if (line[i] === delim && !inQuotes) {
+      result.push(current.trim())
+      current = ''
+    } else {
+      current += line[i]
+    }
+  }
+  result.push(current.trim())
+  return result
+}
+
+// Parser for the official Untappd CSV export (30+ columns)
+// Detected by presence of 'brewery_name' and 'beer_type' headers
+function parseUntappdExportCsv(text) {
+  const clean = text.replace(/^﻿/, '').trim()
+  const lines = clean.split(/\r?\n/)
+  const header = splitCsvRow(lines[0]).map(h => h.toLowerCase().trim())
+
+  return lines.slice(1).flatMap(line => {
+    if (!line.trim()) return []
+    const cols = splitCsvRow(line)
+    const get = name => cols[header.indexOf(name)] || null
+
+    const beerName = get('beer_name')
+    const brewery  = get('brewery_name')
+    if (!beerName || !brewery) return []
+
+    const rawScore = parseFloat(get('rating_score'))
+    const rawAbv   = parseFloat(get('beer_abv'))
+    const rawIbu   = parseInt(get('beer_ibu'), 10)
+    const rawLat   = parseFloat(get('venue_lat'))
+    const rawLng   = parseFloat(get('venue_lng'))
+    const style    = get('beer_type')
+
+    return [{
+      beer_name:          beerName,
+      brewery,
+      style,
+      style_category:     mapStyleCategory(style || '', beerName),
+      abv:                isNaN(rawAbv)   ? null : rawAbv,
+      ibu:                isNaN(rawIbu)   ? null : rawIbu,
+      score:              (!isNaN(rawScore) && rawScore > 0) ? Math.round(rawScore * 2 * 10) / 10 : null,
+      note:               get('comment'),
+      drank_at:           get('created_at'),
+      venue_name:         get('venue_name'),
+      venue_town:         get('venue_city'),
+      venue_country:      get('venue_country'),
+      venue_lat:          isNaN(rawLat)   ? null : rawLat,
+      venue_lng:          isNaN(rawLng)   ? null : rawLng,
+      serving_type:       get('serving_type'),
+      untappd_checkin_id: get('checkin_id'),
+      imported_from:      'untappd',
+    }]
+  })
+}
+
 function parseBeerCsv(text) {
   const clean = text.replace(/^﻿/, '').trim()  // strip BOM
   const lines = clean.split(/\r?\n/)
@@ -399,7 +464,10 @@ export default function Admin() {
     csvRowsRef.current = []
     const reader = new FileReader()
     reader.onload = async ev => {
-      const rows = parseBeerCsv(ev.target.result)
+      const text = ev.target.result
+      const firstLine = text.split('\n')[0].toLowerCase()
+      const isUntappdExport = firstLine.includes('brewery_name') && firstLine.includes('beer_type')
+      const rows = isUntappdExport ? parseUntappdExportCsv(text) : parseBeerCsv(text)
       if (!rows) { setCsvError('Could not parse file.'); return }
       if (rows.error) { setCsvError(`Could not find required columns. ${rows.error}`); return }
       if (!rows.length) { setCsvError('No valid rows found in file.'); return }
@@ -427,7 +495,7 @@ export default function Admin() {
         ...r,
         beer_name:      name,
         brewery:        brewery,
-        style_category: mapStyleCategory('', name),
+        style_category: r.style_category || mapStyleCategory(r.style || '', name),
         match:          undefined,
       }
     })

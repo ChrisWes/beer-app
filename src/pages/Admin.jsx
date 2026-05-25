@@ -715,7 +715,8 @@ export default function Admin() {
       {/* CSV import */}
       <h2 style={{ marginBottom: 8 }}>Import from CSV</h2>
       <p style={{ color: 'var(--muted)', marginBottom: 16, fontSize: '0.9rem' }}>
-        For a simple list with Brewery, Name, Rating (0–5 scale) columns.
+        Accepts the official Untappd CSV export (<strong style={{ color: 'var(--white)' }}>Settings → Export Data</strong> on Untappd), or a simple Brewery / Name / Rating spreadsheet.
+        Format is detected automatically.
       </p>
 
       <div className="form-stack">

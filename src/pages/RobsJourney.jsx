@@ -7,7 +7,7 @@ import {
 // ── Rating helpers ────────────────────────────────────────────
 
 function getRatingCategory(sym) {
-  const s = (sym ?? '').trim()
+  const s = String(sym ?? '').trim()
   if (['*', '**', '(*)', '#'].includes(s)) return 'Excellent'
   if (['+', '(+)'].includes(s)) return 'Good'
   if (['X', '(X)'].includes(s)) return 'Avoid'
@@ -180,7 +180,7 @@ export default function RobsJourney() {
         }}>
           Rob's Journey
         </div>
-        <h1 style={{ marginBottom: 8, fontSize: '2rem' }}>A Decade in the Cellar</h1>
+        <h1 style={{ marginBottom: 8, fontSize: '2rem' }}>Beer Odyssey</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
           The full pre-2025 archive — nearly 5,000 beers catalogued before the modern era began.
         </p>

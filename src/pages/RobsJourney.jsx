@@ -6,11 +6,13 @@ import {
 
 // ── Rating helpers ────────────────────────────────────────────
 
-function getRatingCategory(sym) {
-  const s = String(sym ?? '').trim()
-  if (['*', '**', '(*)', '#'].includes(s)) return 'Excellent'
-  if (['+', '(+)'].includes(s)) return 'Good'
-  if (['X', '(X)'].includes(s)) return 'Avoid'
+function getRatingCategory(score) {
+  if (score == null) return 'Neutral'
+  const n = Number(score)
+  if (isNaN(n)) return 'Neutral'
+  if (n >= 7) return 'Excellent'
+  if (n >= 4) return 'Good'
+  if (n > 0) return 'Avoid'
   return 'Neutral'
 }
 

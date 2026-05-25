@@ -27,7 +27,7 @@ const AWARD_DEFS = [
   { id: 'iconoclast',        cat: 'palate',     emoji: '🏛️', name: 'The Iconoclast',       flavor: "Nobody hates craft beer more than a true craft beer fan." },
   { id: 'monogamous',        cat: 'palate',     emoji: '💍', name: 'Monogamous Drinker',   flavor: "Experimental? Groundbreaking? No thanks, I'll have the usual." },
   { id: 'nomad',             cat: 'palate',     emoji: '🧭', name: 'The Nomad',            flavor: 'Your palate has zero loyalty and a severe case of wanderlust.' },
-  { id: 'iron_liver',        cat: 'highoctane', emoji: '🛢️', name: 'The Iron Liver',       flavor: "Your average pint clocks in well above 8%. Water is for the weak." },
+  { id: 'iron_liver',        cat: 'highoctane', emoji: '🛢️', name: 'The Iron Liver',       flavor: "Your ABV average is higher than the average bear." },
   { id: 'sundown_savior',    cat: 'highoctane', emoji: '🌙', name: 'The Sundown Savior',   flavor: 'A badge awarded for survive-and-advance Tuesday nights.' },
   { id: 'freshness_hunter',  cat: 'highoctane', emoji: '🏹', name: 'The Freshness Hunter', flavor: "If it's been in the can for more than 14 days, you consider it ancient history." },
   { id: 'robs_disciple',     cat: 'legacy',     emoji: '📜', name: "Rob's Disciple",       flavor: 'Your palate is beautifully aligned with the sacred texts.' },

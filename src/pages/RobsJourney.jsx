@@ -35,7 +35,7 @@ export default function RobsJourney() {
       while (true) {
         const { data, error: err } = await supabase
           .from('ratings')
-          .select('id, rating_symbol, drank_at, beers(name, brewery, style_category)')
+          .select('id, score, drank_at, beers(name, brewery, style_category)')
           .gte('drank_at', '2024-12-31')
           .lt('drank_at', '2025-01-01')
           .range(from, from + PAGE - 1)
@@ -63,10 +63,10 @@ export default function RobsJourney() {
 
       // Flatten the nested beers join
       const flatHist = hist.map(r => {
-        const cat = getRatingCategory(r.rating_symbol)
+        const cat = getRatingCategory(r.score)
         return {
           id:              r.id,
-          rating_symbol:   r.rating_symbol,
+          rating_symbol:   r.score,
           drank_at:        r.drank_at,
           beer_name:       r.beers?.name      ?? null,
           brewery:         r.beers?.brewery   ?? null,

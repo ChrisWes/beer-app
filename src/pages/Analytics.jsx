@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
+import AwardsTab from './Awards'
 
 const ABV_COLOURS = ['#d4841e','#4ea8de','#56c27a','#e06c75','#c678dd','#61afef','#e5c07b','#98c379']
 
@@ -48,9 +49,9 @@ export default function Analytics() {
       </div>
 
       <div className="pill-group" style={{ marginBottom: 20, flexWrap: 'wrap' }}>
-        {['2026', '2025', 'group', 'beers', 'pubs', 'people'].map(t => (
+        {['2026', '2025', 'group', 'beers', 'pubs', 'people', 'awards'].map(t => (
           <button key={t} className={`pill ${tab === t ? 'selected' : ''}`} onClick={() => setTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === 'awards' ? '🏆 Awards' : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
@@ -68,7 +69,8 @@ export default function Analytics() {
             {tab === 'group'  && <GroupTab ratings={allRatings} profiles={profiles} />}
             {tab === 'beers'  && <BeersTab ratings={allRatings} />}
             {tab === 'pubs'   && <PubsTab venues={venues} />}
-            {tab === 'people' && <PeopleTab profiles={profiles} ratings={allRatings} />}
+            {tab === 'people'  && <PeopleTab profiles={profiles} ratings={allRatings} />}
+            {tab === 'awards'  && <AwardsTab />}
           </>
         )
       })()}

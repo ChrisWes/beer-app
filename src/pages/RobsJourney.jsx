@@ -42,13 +42,19 @@ export default function RobsJourney() {
   const [error, setError]                 = useState(null)
 
   useEffect(() => {
-    supabase.from('profiles').select('id, display_name').order('display_name')
-      .then(({ data }) => {
-        if (data?.length) {
-          setProfiles(data)
-          setSelectedUserId(data[0].id)
-        }
-      })
+    async function loadProfiles() {
+      const { data } = await supabase.from('profiles').select('id, display_name').order('display_name')
+      if (!data?.length) return
+      const counts = await Promise.all(
+        data.map(p => supabase.from('ratings').select('id', { count: 'exact', head: true }).eq('user_id', p.id))
+      )
+      const eligible = data.filter((_, i) => (counts[i].count ?? 0) >= 500)
+      if (eligible.length) {
+        setProfiles(eligible)
+        setSelectedUserId(eligible[0].id)
+      }
+    }
+    loadProfiles()
   }, [])
 
   useEffect(() => {

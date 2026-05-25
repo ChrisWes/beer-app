@@ -88,7 +88,7 @@ function AppRoutes() {
         <Route path="/beers"     element={<Beers />} />
         <Route path="/admin"       element={<Admin />} />
         <Route path="/taste-admin"   element={<TasteAdmin />} />
-        <Route path="/robs-journey" element={<RobsJourney />} />
+        <Route path="/journey"      element={<RobsJourney />} />
         <Route path="*"             element={<Navigate to="/" />} />
       </Routes>
       <Nav />

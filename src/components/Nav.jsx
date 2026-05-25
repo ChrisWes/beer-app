@@ -86,7 +86,7 @@ export default function Nav() {
           Stats
         </NavLink>
 
-        <NavLink to="/robs-journey">
+        <NavLink to="/journey">
           <JourneyIcon />
           Journey
         </NavLink>

@@ -132,7 +132,7 @@ export default function RobsJourney() {
 
     const topByVolume = Object.entries(breweryVolume)
       .sort(([, a], [, b]) => b - a).slice(0, 10)
-      .map(([brewery, count]) => ({ brewery, count })).reverse()
+      .map(([brewery, count]) => ({ brewery, count }))
 
     const topByRating = Object.entries(breweryScoreMap)
       .filter(([, s]) => s.length >= 5)
@@ -141,7 +141,7 @@ export default function RobsJourney() {
         avgScore: +(scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2),
         count: scores.length,
       }))
-      .sort((a, b) => b.avgScore - a.avgScore).slice(0, 10).reverse()
+      .sort((a, b) => b.avgScore - a.avgScore).slice(0, 10)
 
     // Time Capsule — Excellent archive beers absent from modern era
     const seen = new Set()

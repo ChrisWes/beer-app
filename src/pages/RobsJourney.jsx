@@ -125,8 +125,9 @@ export default function RobsJourney() {
     for (const r of allRatings) {
       if (!r.brewery) continue
       breweryVolume[r.brewery] = (breweryVolume[r.brewery] || 0) + 1
+      if (r.score == null) continue
       if (!breweryScoreMap[r.brewery]) breweryScoreMap[r.brewery] = []
-      breweryScoreMap[r.brewery].push(r.rating_score)
+      breweryScoreMap[r.brewery].push(r.score)
     }
 
     const topByVolume = Object.entries(breweryVolume)
@@ -334,7 +335,7 @@ function GiantsOfCellar({ topByVolume, topByRating }) {
   const chartData = isVolume ? topByVolume : topByRating
   const dataKey   = isVolume ? 'count' : 'avgScore'
   const barColor  = isVolume ? 'var(--amber)' : 'var(--gold)'
-  const xDomain   = isVolume ? [0, 'dataMax'] : [0, 5]
+  const xDomain   = isVolume ? [0, 'dataMax'] : [0, 10]
   const yAxisWidth = 150
 
   return (
@@ -365,7 +366,7 @@ function GiantsOfCellar({ topByVolume, topByRating }) {
                   formatter={(value, _name, props) =>
                     isVolume
                       ? [`${value} beers`, props.payload.brewery]
-                      : [`${value.toFixed(2)} / 5 (${props.payload.count} beers)`, props.payload.brewery]
+                      : [`${value.toFixed(2)} / 10 (${props.payload.count} beers)`, props.payload.brewery]
                   }
                   labelFormatter={() => ''}
                 />

@@ -48,7 +48,7 @@ export default function RobsJourney() {
       const counts = await Promise.all(
         data.map(p => supabase.from('ratings').select('id', { count: 'exact', head: true }).eq('user_id', p.id))
       )
-      const eligible = data.filter((_, i) => (counts[i].count ?? 0) >= 500)
+      const eligible = data.filter((_, i) => (counts[i].count ?? 0) >= 350)
       if (eligible.length) {
         setProfiles(eligible)
         setSelectedUserId('all')

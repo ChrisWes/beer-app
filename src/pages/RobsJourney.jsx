@@ -51,7 +51,7 @@ export default function RobsJourney() {
       const eligible = data.filter((_, i) => (counts[i].count ?? 0) >= 500)
       if (eligible.length) {
         setProfiles(eligible)
-        setSelectedUserId(eligible[0].id)
+        setSelectedUserId('all')
       }
     }
     loadProfiles()
@@ -69,11 +69,12 @@ export default function RobsJourney() {
       const PAGE = 1000
       let all = [], from = 0
       while (true) {
-        const { data, error: err } = await supabase
+        let q = supabase
           .from('ratings')
           .select('id, score, drank_at, serving_type, beers(name, brewery, style_category, ibu)')
-          .eq('user_id', userId)
           .range(from, from + PAGE - 1)
+        if (userId !== 'all') q = q.eq('user_id', userId)
+        const { data, error: err } = await q
         if (err) throw err
         if (!data?.length) break
         all = all.concat(data)
@@ -103,7 +104,7 @@ export default function RobsJourney() {
     }
   }
 
-  const selectedProfile = profiles.find(p => p.id === selectedUserId)
+  const selectedProfile = selectedUserId === 'all' ? null : profiles.find(p => p.id === selectedUserId)
 
   // ── Derived analytics ─────────────────────────────────────
   const derived = useMemo(() => {
@@ -248,13 +249,19 @@ export default function RobsJourney() {
         </div>
         <h1 style={{ marginBottom: 8, fontSize: '2rem' }}>A Bitter Odyssey</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          {selectedProfile ? `${selectedProfile.display_name}'s full beer archive.` : 'Full beer archive.'}
+          {selectedUserId === 'all' ? 'The whole team — every beer, every brewery, every era.' : selectedProfile ? `${selectedProfile.display_name}'s full beer archive.` : 'Full beer archive.'}
         </p>
       </div>
 
       {/* ── User selector ── */}
-      {profiles.length > 1 && (
+      {profiles.length > 0 && (
         <div className="pill-group" style={{ marginBottom: 24, flexWrap: 'wrap' }}>
+          <button
+            className={`pill ${selectedUserId === 'all' ? 'selected' : ''}`}
+            onClick={() => setSelectedUserId('all')}
+          >
+            The Whole Team
+          </button>
           {profiles.map(p => (
             <button
               key={p.id}

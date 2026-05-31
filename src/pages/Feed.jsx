@@ -4,14 +4,53 @@ import FeedCard from '../components/FeedCard'
 
 const PAGE_SIZE = 30
 
+function WeekStats({ strongest, topName, topCount }) {
+  return (
+    <div className="stats-grid" style={{ marginBottom: 16 }}>
+      <div className="stat-card">
+        <div className="stat-value">{strongest.abv.toFixed(1)}%</div>
+        <div className="stat-label">Strongest this week</div>
+        <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: 4 }}>
+          {strongest.beer_name} · {strongest.display_name}
+        </div>
+      </div>
+      <div className="stat-card">
+        <div className="stat-value">{topCount}</div>
+        <div className="stat-label">Most check-ins</div>
+        <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: 4 }}>
+          {topName} · last 7 days
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Feed() {
   const [ratings, setRatings] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [weekStats, setWeekStats] = useState(null)
   const sentinelRef = useRef(null)
   const loadingMoreRef = useRef(false)
   const hasMoreRef = useRef(true)
+
+  useEffect(() => {
+    const since = new Date()
+    since.setDate(since.getDate() - 7)
+    supabase
+      .from('feed')
+      .select('display_name, beer_name, brewery, abv, drank_at')
+      .gte('drank_at', since.toISOString())
+      .then(({ data }) => {
+        if (!data?.length) return
+        const strongest = [...data].filter(r => r.abv > 0).sort((a, b) => b.abv - a.abv)[0] ?? null
+        const counts = {}
+        for (const r of data) counts[r.display_name] = (counts[r.display_name] || 0) + 1
+        const [topName, topCount] = Object.entries(counts).sort(([, a], [, b]) => b - a)[0] ?? []
+        setWeekStats({ strongest, topName, topCount })
+      })
+  }, [])
 
   useEffect(() => {
     fetchPage(0, true)
@@ -101,6 +140,10 @@ export default function Feed() {
           {ratings.length} pints logged
         </span>
       </div>
+
+      {weekStats?.strongest && weekStats?.topName && (
+        <WeekStats strongest={weekStats.strongest} topName={weekStats.topName} topCount={weekStats.topCount} />
+      )}
 
       {loading && <div className="loading-bar" />}
 

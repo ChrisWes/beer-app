@@ -15,15 +15,26 @@
  */
 
 import { chromium } from 'playwright'
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, writeFileSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+import { createInterface } from 'readline'
+
+function waitForEnter(prompt) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  return new Promise(resolve => rl.question(prompt, () => { rl.close(); resolve() }))
+}
 
 // ── Minimal .env loader (no extra deps) ──────────────────────
-const envPath = new URL('.env', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const envPath = join(__dirname, '.env')
 if (existsSync(envPath)) {
   for (const line of readFileSync(envPath, 'utf8').split('\n')) {
     const m = line.match(/^([A-Z_]+)\s*=\s*"?([^"\n]+)"?/)
     if (m) process.env[m[1]] = m[2].trim()
   }
+} else {
+  console.warn(`No .env found at ${envPath}`)
 }
 
 const SUPABASE_URL = process.env.SUPABASE_URL
@@ -94,29 +105,43 @@ function mapStyleCategory(style) {
   return null
 }
 
-// ── HTML parser (mirrors worker/src/index.js) ─────────────────
+// ── HTML parser — activity feed format (untappd.com/user/:name) ─
 function parseCheckins(html) {
   const checkins = []
-  const blocks = html.split('<div class="beer-item"').slice(1)
+  const blocks = html.split('data-checkin-id="').slice(1)
+
   for (const b of blocks) {
-    const beer_name  = b.match(/class="name"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
-    const brewery    = b.match(/class="brewery"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
-    const style      = b.match(/class="style"[^>]*>([^<]+)<\/p>/)?.[1]?.trim() ?? null
-    const abv_raw    = b.match(/class="abv"[^>]*>\s*([\d.]+)%/)?.[1]
-    const rating_raw = b.match(/data-rating="([\d.]+)"/)?.[1]
-    const dates      = [...b.matchAll(/class="date-time">([^<]+)<\/abbr>/g)].map(m => m[1])
-    const drank_at   = dates[1] ?? dates[0] ?? null
-    const checkin_id = b.match(/\/checkin\/(\d+)\//)?.[1] ?? null
+    const checkin_id = b.match(/^(\d+)"/)?.[1] ?? null
+
+    // Beer name and brewery from the activity sentence:
+    // is drinking a <a href="/b/...">Beer Name</a> by <a href="/Brewery">Brewery</a>
+    const beerBrewery = b.match(/href="\/b\/[^"]+">([^<]+)<\/a>\s+by\s+<a[^>]+>([^<]+)<\/a>/)
+    const beer_name   = beerBrewery?.[1]?.trim() ?? null
+    const brewery     = beerBrewery?.[2]?.trim() ?? null
+
+    // Rating: <div class="caps" data-rating="4.4">
+    const rating_raw  = b.match(/class="caps[^"]*"\s+data-rating="([\d.]+)"/)?.[1]
+
+    // Timestamp: data-gregtime="Sat, 30 May 2026 20:48:05 +0000"
+    const gregtime    = b.match(/data-gregtime="([^"]+)"/)?.[1] ?? null
+
+    // Serving type: <p class="serving">...<span>Can</span>
+    const serving_type = b.match(/<p class="serving">[^<]*<img[^>]*>[^<]*<span>([^<]+)<\/span>/)?.[1]?.trim() ?? null
+
     if (!beer_name || !brewery) continue
+
     checkins.push({
       untappd_checkin_id: checkin_id,
-      beer_name, brewery, style,
-      abv:            abv_raw ? parseFloat(abv_raw) : null,
-      style_category: mapStyleCategory(style),
+      beer_name,
+      brewery,
+      style:          null,
+      abv:            null,
+      style_category: null,
       score:          rating_raw ? Math.round(parseFloat(rating_raw) * 2 * 10) / 10 : null,
       note:           null,
-      drank_at:       drank_at ? new Date(drank_at).toISOString() : null,
+      drank_at:       gregtime ? new Date(gregtime).toISOString() : null,
       venue_name:     null,
+      serving_type,
     })
   }
   return checkins
@@ -134,7 +159,7 @@ if (!profiles?.length) {
 
 console.log(`Found ${profiles.length} profile(s) to sync: ${profiles.map(p => p.untappd_username).join(', ')}\n`)
 
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({ headless: false })
 const context = await browser.newContext({
   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
   locale: 'en-GB',
@@ -154,11 +179,11 @@ for (const profile of profiles) {
   console.log(`\nSyncing ${untappd_username}...`)
 
   try {
-    await page.goto(`https://untappd.com/user/${untappd_username}/beers`, {
+    await page.goto(`https://untappd.com/user/${untappd_username}`, {
       waitUntil: 'domcontentloaded',
       timeout: 30000,
     })
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(6000)
 
     const html = await page.content()
     if (html.includes('Something went wrong') || html.includes('cf-error')) {
@@ -169,7 +194,9 @@ for (const profile of profiles) {
     console.log(`  Parsed ${checkins.length} check-ins from page`)
 
     if (!checkins.length) {
-      console.log('  No check-ins found — page structure may have changed')
+      const diagPath = join(__dirname, `diag-${untappd_username}.html`)
+      writeFileSync(diagPath, html)
+      console.log(`  No check-ins found — saved raw HTML to ${diagPath}`)
       results.push({ user: untappd_username, imported: 0, note: 'no checkins parsed' })
       continue
     }

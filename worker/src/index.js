@@ -49,7 +49,9 @@ async function runImport(env) {
     '/rest/v1/profiles?untappd_username=not.is.null&select=id,untappd_username,last_untappd_import')
 
   const results = []
-  for (const profile of profiles ?? []) {
+  for (let i = 0; i < (profiles ?? []).length; i++) {
+    const profile = profiles[i]
+    if (i > 0) await new Promise(r => setTimeout(r, 4000))
     try {
       const r = await importForUser(env, profile)
       results.push({ user: profile.untappd_username, ...r })
@@ -90,9 +92,16 @@ async function importForUser(env, { id: user_id, untappd_username, last_untappd_
 async function fetchUntappdHtml(username) {
   const res = await fetch(`https://untappd.com/user/${username}/beers`, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-GB,en;q=0.5',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-GB,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Upgrade-Insecure-Requests': '1',
     },
   })
   if (!res.ok) throw new Error(`Untappd ${res.status} for ${username}`)

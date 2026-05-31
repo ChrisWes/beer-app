@@ -90,7 +90,7 @@ async function importForUser(env, { id: user_id, untappd_username, last_untappd_
 }
 
 async function fetchUntappdHtml(username) {
-  const res = await fetch(`https://untappd.com/user/${username}/beers`, {
+  const res = await fetch(`https://untappd.com/user/${username}`, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -115,25 +115,16 @@ async function scrapeUntappd(username) {
 
 function parseCheckins(html) {
   const checkins = []
-  // Split on each beer-item div — actual structure confirmed from live HTML
-  const blocks = html.split('<div class="beer-item"').slice(1)
+  const blocks = html.split('data-checkin-id="').slice(1)
 
   for (const b of blocks) {
-    // Beer name: <p class="name"><a ...>Name</a></p>
-    const beer_name = b.match(/class="name"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
-    // Brewery: <p class="brewery"><a ...>Brewery</a></p>
-    const brewery   = b.match(/class="brewery"[^>]*>\s*<a[^>]*>([^<]+)<\/a>/)?.[1]?.trim() ?? null
-    // Style: <p class="style">Style text</p>
-    const style     = b.match(/class="style"[^>]*>([^<]+)<\/p>/)?.[1]?.trim() ?? null
-    // ABV: <p class="abv">4.2% ABV</p>
-    const abv_raw   = b.match(/class="abv"[^>]*>\s*([\d.]+)%/)?.[1]
-    // Their rating — first data-rating value in the block (second is global rating)
-    const rating_raw = b.match(/data-rating="([\d.]+)"/)?.[1]
-    // Dates — two <abbr class="date-time"> elements: First then Recent
-    const dates     = [...b.matchAll(/class="date-time">([^<]+)<\/abbr>/g)].map(m => m[1])
-    const drank_at  = dates[1] ?? dates[0] ?? null   // prefer Recent over First
-    // Checkin ID from the checkin URL
-    const checkin_id = b.match(/\/checkin\/(\d+)\//)?.[1] ?? null
+    const checkin_id  = b.match(/^(\d+)"/)?.[1] ?? null
+    const beerBrewery = b.match(/href="\/b\/[^"]+">([^<]+)<\/a>\s+by\s+<a[^>]+>([^<]+)<\/a>/)
+    const beer_name   = beerBrewery?.[1]?.trim() ?? null
+    const brewery     = beerBrewery?.[2]?.trim() ?? null
+    const rating_raw  = b.match(/class="caps[^"]*"\s+data-rating="([\d.]+)"/)?.[1]
+    const gregtime    = b.match(/data-gregtime="([^"]+)"/)?.[1] ?? null
+    const serving_type = b.match(/<p class="serving">[^<]*<img[^>]*>[^<]*<span>([^<]+)<\/span>/)?.[1]?.trim() ?? null
 
     if (!beer_name || !brewery) continue
 
@@ -141,13 +132,14 @@ function parseCheckins(html) {
       untappd_checkin_id: checkin_id,
       beer_name,
       brewery,
-      style,
-      abv:            abv_raw ? parseFloat(abv_raw) : null,
-      style_category: mapStyleCategory(style),
+      style:          null,
+      abv:            null,
+      style_category: null,
       score:          rating_raw ? Math.round(parseFloat(rating_raw) * 2 * 10) / 10 : null,
       note:           null,
-      drank_at:       drank_at ? new Date(drank_at).toISOString() : null,
+      drank_at:       gregtime ? new Date(gregtime).toISOString() : null,
       venue_name:     null,
+      serving_type,
     })
   }
   return checkins

@@ -131,9 +131,12 @@ export function formatDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   const now = new Date()
+  const dLocal = d.toLocaleDateString('en-CA')
+  const todayLocal = now.toLocaleDateString('en-CA')
+  const yesterdayLocal = new Date(now - 86400000).toLocaleDateString('en-CA')
+  if (dLocal === todayLocal) return 'Today'
+  if (dLocal === yesterdayLocal) return 'Yesterday'
   const diffDays = Math.floor((now - d) / 86400000)
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7)  return `${diffDays}d ago`
+  if (diffDays < 7) return `${diffDays}d ago`
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }

@@ -213,6 +213,13 @@ for (const profile of profiles) {
       continue
     }
 
+    console.log(`  Beers to import:`)
+    for (const c of fresh) {
+      const score = c.score != null ? ` — ${c.score}/10` : ''
+      const at = c.drank_at ? ` (${new Date(c.drank_at).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })})` : ''
+      console.log(`    • ${c.beer_name} by ${c.brewery}${score}${at}`)
+    }
+
     const rpcResult = await sbPost('/rest/v1/rpc/import_untappd_checkins', {
       p_user_id: user_id,
       p_checkins: fresh,
@@ -222,7 +229,7 @@ for (const profile of profiles) {
       last_untappd_import: new Date().toISOString(),
     })
 
-    console.log(`  ✓ Imported ${fresh.length} check-ins`)
+    console.log(`  ✓ Imported ${fresh.length} check-in${fresh.length === 1 ? '' : 's'}`)
     results.push({ user: untappd_username, imported: fresh.length, rpc: rpcResult })
 
   } catch (e) {

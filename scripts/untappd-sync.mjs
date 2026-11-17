@@ -182,7 +182,10 @@ async function loadBackTo(page, cutoff) {
     if (!(await more.isVisible().catch(() => false))) return { pages: i, reachedCutoff: true }
 
     const before = await page.locator('[data-checkin-id]').count()
-    await more.click()
+    // Click in-page: Playwright reports the button as outside the viewport
+    // (covered by a fixed footer), which makes a normal click time out
+    const clicked = await more.evaluate(el => el.click()).then(() => true, () => false)
+    if (!clicked) return { pages: i, reachedCutoff: false }
     const grew = await page.waitForFunction(
       n => document.querySelectorAll('[data-checkin-id]').length > n, before, { timeout: 15000 }
     ).then(() => true, () => false)
@@ -240,7 +243,9 @@ for (const profile of profiles) {
     await page.waitForTimeout(6000)
 
     const html = await page.content()
-    if (html.includes('Something went wrong') || html.includes('cf-error')) {
+    // Logged-in pages embed a hidden "Something went wrong" toast, so only
+    // treat it as a block when no check-ins came back
+    if (!html.includes('data-checkin-id') && (html.includes('Something went wrong') || html.includes('cf-error'))) {
       throw new Error('Blocked by Cloudflare challenge page')
     }
 

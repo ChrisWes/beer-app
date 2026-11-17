@@ -12,6 +12,11 @@
  * Requires:
  *   SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY set as environment variables,
  *   or a .env file in the scripts/ directory (loaded below).
+ *
+ * Optional:
+ *   An Untappd login session (UNTAPPD_SESSION env var, or untappd-session.json
+ *   from untappd-login.mjs). Logged out, Untappd only shows the latest ~5
+ *   check-ins; logged in, the sync clicks "Show More" back to the last import.
  */
 
 import { chromium } from 'playwright'
@@ -108,10 +113,12 @@ function mapStyleCategory(style) {
 // ── HTML parser — activity feed format (untappd.com/user/:name) ─
 function parseCheckins(html) {
   const checkins = []
+  const seen = new Set()
   const blocks = html.split('data-checkin-id="').slice(1)
 
   for (const b of blocks) {
     const checkin_id = b.match(/^(\d+)"/)?.[1] ?? null
+    if (checkin_id && seen.has(checkin_id)) continue
 
     // Beer name and brewery from the activity sentence:
     // is drinking a <a href="/b/...">Beer Name</a> by <a href="/Brewery">Brewery</a>
@@ -129,6 +136,7 @@ function parseCheckins(html) {
     const serving_type = b.match(/<p class="serving">[^<]*<img[^>]*>[^<]*<span>([^<]+)<\/span>/)?.[1]?.trim() ?? null
 
     if (!beer_name || !brewery) continue
+    if (checkin_id) seen.add(checkin_id)
 
     checkins.push({
       untappd_checkin_id: checkin_id,
@@ -145,6 +153,43 @@ function parseCheckins(html) {
     })
   }
   return checkins
+}
+
+// ── Untappd session ───────────────────────────────────────────
+const sessionPath = join(__dirname, 'untappd-session.json')
+let storageState
+try {
+  if (process.env.UNTAPPD_SESSION) storageState = JSON.parse(process.env.UNTAPPD_SESSION)
+  else if (existsSync(sessionPath)) storageState = JSON.parse(readFileSync(sessionPath, 'utf8'))
+} catch {
+  console.warn('Could not parse Untappd session — continuing logged out')
+}
+
+// node untappd-sync.mjs --dry-run  → scrape and report, but write nothing to Supabase
+const DRY_RUN = process.argv.includes('--dry-run')
+
+// Logged in: click "Show More" until we reach check-ins older than the cutoff
+const MAX_PAGES = 30
+
+async function loadBackTo(page, cutoff) {
+  for (let i = 0; i < MAX_PAGES; i++) {
+    const checkins = parseCheckins(await page.content())
+    const oldest = checkins.reduce((min, c) => c.drank_at && c.drank_at < min ? c.drank_at : min, '9999')
+    if (cutoff && new Date(oldest) <= cutoff) return { pages: i, reachedCutoff: true }
+
+    // No more button means we've reached the start of their history
+    const more = page.locator('a.more_checkins, :text-matches("^\\s*Show More\\s*$", "i")').first()
+    if (!(await more.isVisible().catch(() => false))) return { pages: i, reachedCutoff: true }
+
+    const before = await page.locator('[data-checkin-id]').count()
+    await more.click()
+    const grew = await page.waitForFunction(
+      n => document.querySelectorAll('[data-checkin-id]').length > n, before, { timeout: 15000 }
+    ).then(() => true, () => false)
+    if (!grew) return { pages: i + 1, reachedCutoff: false }
+    await page.waitForTimeout(1500)
+  }
+  return { pages: MAX_PAGES, reachedCutoff: false }
 }
 
 // ── Main ──────────────────────────────────────────────────────
@@ -164,6 +209,7 @@ const browser = await chromium.launch({
   args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
 })
 const context = await browser.newContext({
+  storageState,
   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
   locale: 'en-GB',
   extraHTTPHeaders: { 'Accept-Language': 'en-GB,en;q=0.9' },
@@ -174,6 +220,11 @@ const page = await context.newPage()
 console.log('Establishing Untappd session...')
 await page.goto('https://untappd.com', { waitUntil: 'domcontentloaded', timeout: 30000 })
 await page.waitForTimeout(1500)
+
+const loggedIn = (await page.content()).includes('/logout')
+if (loggedIn) console.log("Logged in to Untappd — will page back to each user's last import")
+else if (storageState) console.log('::error::Untappd session has expired — falling back to latest ~5 check-ins. Re-run untappd-login.mjs and update the UNTAPPD_SESSION secret.')
+else console.log('No Untappd session — only the latest ~5 check-ins per user are visible')
 
 const results = []
 
@@ -193,7 +244,15 @@ for (const profile of profiles) {
       throw new Error('Blocked by Cloudflare challenge page')
     }
 
-    const checkins = parseCheckins(html)
+    const cutoff = last_untappd_import ? new Date(last_untappd_import) : null
+    let reachedCutoff = false
+    if (loggedIn) {
+      const r = await loadBackTo(page, cutoff)
+      reachedCutoff = r.reachedCutoff
+      if (r.pages) console.log(`  Loaded ${r.pages} extra page${r.pages === 1 ? '' : 's'} of history`)
+    }
+
+    const checkins = parseCheckins(await page.content())
     console.log(`  Parsed ${checkins.length} check-ins from page`)
 
     if (!checkins.length) {
@@ -204,9 +263,12 @@ for (const profile of profiles) {
       continue
     }
 
-    const cutoff = last_untappd_import ? new Date(last_untappd_import) : null
     const fresh = checkins.filter(c => !cutoff || (c.drank_at && new Date(c.drank_at) > cutoff))
     console.log(`  ${fresh.length} new since last import (cutoff: ${cutoff?.toDateString() ?? 'none'})`)
+
+    // Every visible check-in is new, so older ones may lie beyond what we loaded
+    const possibleGap = Boolean(cutoff && !reachedCutoff && fresh.length === checkins.length)
+    if (possibleGap) console.log(`::warning::${untappd_username}: all ${checkins.length} visible check-ins are new — older ones may have been missed, backfill with the Admin console snippet`)
 
     if (!fresh.length) {
       results.push({ user: untappd_username, imported: 0, note: 'nothing new' })
@@ -220,6 +282,11 @@ for (const profile of profiles) {
       console.log(`    • ${c.beer_name} by ${c.brewery}${score}${at}`)
     }
 
+    if (DRY_RUN) {
+      results.push({ user: untappd_username, wouldImport: fresh.length, ...(possibleGap && { possibleGap }) })
+      continue
+    }
+
     const rpcResult = await sbPost('/rest/v1/rpc/import_untappd_checkins', {
       p_user_id: user_id,
       p_checkins: fresh,
@@ -230,7 +297,7 @@ for (const profile of profiles) {
     })
 
     console.log(`  ✓ Imported ${fresh.length} check-in${fresh.length === 1 ? '' : 's'}`)
-    results.push({ user: untappd_username, imported: fresh.length, rpc: rpcResult })
+    results.push({ user: untappd_username, imported: fresh.length, rpc: rpcResult, ...(possibleGap && { possibleGap }) })
 
   } catch (e) {
     console.error(`  ✗ Failed: ${e.message}`)
@@ -247,3 +314,6 @@ await browser.close()
 
 console.log('\n── Summary ──────────────────────────────')
 for (const r of results) console.log(JSON.stringify(r))
+
+// Fail the run so GitHub emails about the expired session
+if (storageState && !loggedIn) process.exitCode = 1

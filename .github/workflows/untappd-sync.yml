@@ -8,7 +8,17 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write   # needed by the keepalive step below
     steps:
+      # GitHub disables scheduled workflows after 60 days without repo activity.
+      # Re-enabling via the API on each run resets that timer.
+      - name: Keep schedule alive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/untappd-sync.yml/enable"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4

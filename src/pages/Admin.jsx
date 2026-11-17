@@ -551,6 +551,8 @@ export default function Admin() {
         note:           c.note         || null,
         drank_at:       c.drank_at     || null,
         venue_name:     c.venue_name   || null,
+        serving_type:   c.serving_type || null,
+        untappd_checkin_id: c.untappd_checkin_id || null,
       })),
       p_user_id: selectedUser,
     })
@@ -1100,7 +1102,7 @@ export default function Admin() {
   )
 }
 
-const SNIPPET = `// Rounds Untappd export snippet v3
+const SNIPPET = `// Rounds Untappd export snippet v4
 (function() {
   const checkins = [];
   const items = document.querySelectorAll('[data-checkin-id]');
@@ -1113,12 +1115,13 @@ const SNIPPET = `// Rounds Untappd export snippet v3
     const note      = item.querySelector('.checkin-comment p')?.textContent?.trim() ?? null;
     const venueName = item.querySelector('.text a[href^="/v/"]')?.textContent?.trim() ?? null;
     const timeEl    = item.querySelector('a.time');
-    const drankAt   = timeEl?.getAttribute('title') || timeEl?.getAttribute('data-time') || timeEl?.textContent?.trim() || null;
+    const drankAt   = timeEl?.dataset.gregtime || timeEl?.getAttribute('title') || timeEl?.getAttribute('data-time') || timeEl?.textContent?.trim() || null;
     const checkinId = item.getAttribute('data-checkin-id');
+    const serving   = item.querySelector('p.serving span')?.textContent?.trim() ?? null;
     if (beerName && brewery) {
       checkins.push({ untappd_checkin_id: checkinId, beer_name: beerName, brewery,
         style: null, abv: null, score, note: note||null,
-        venue_name: venueName||null, drank_at: drankAt||null, imported_from: 'untappd' });
+        venue_name: venueName||null, drank_at: drankAt||null, serving_type: serving, imported_from: 'untappd' });
     }
   });
   if (!checkins.length) { alert('No check-ins found. Scroll to the bottom first.'); return; }
